@@ -1,0 +1,27 @@
+@font-face {
+  font-family: "EarlyGameBoy";
+  src: url("./assets/font/Early GameBoy.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "EarlyGameBoy", monospace;
+}
+
+body {
+  background: #f1e8b6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  font-family: "EarlyGameBoy", monospace;
+}
+
+canvas {
+  display: block;
+}

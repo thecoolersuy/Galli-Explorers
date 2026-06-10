@@ -1,0 +1,16 @@
+import Phaser from "phaser";
+
+export default class UIScene extends Phaser.Scene {
+  constructor() {
+    super("UIScene");
+  }
+
+  create() {
+    // HUD — timer, lives, score (we'll build this out in Step 4)
+    this.add.text(16, 16, "Level 1", {
+      fontFamily: "EarlyGameBoy",
+      fontSize: "20px",
+      color: "#ffffff",
+    });
+  }
+}
