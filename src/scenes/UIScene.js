@@ -10,7 +10,7 @@ export default class UIScene extends Phaser.Scene {
     this.add.text(16, 16, "Level 1", {
       fontFamily: "EarlyGameBoy",
       fontSize: "20px",
-      color: "#ffffff",
+      color: "#1b2e24",
     });
   }
 }

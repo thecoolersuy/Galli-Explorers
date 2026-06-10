@@ -111,10 +111,16 @@ export default class Level1Scene extends Phaser.Scene {
 
     // Goal emoji label
     this.add
-      .text(offsetX + goal.c * S + S / 2, offsetY + goal.r * S + S / 2, "🎩", {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "22px",
-      })
+      .text(
+        offsetX + goal.c * S + S / 2,
+        offsetY + goal.r * S + S / 2,
+        "GHAR",
+        {
+          fontFamily: "EarlyGameBoy",
+          fontSize: "22px",
+          color: "#1b2e24",
+        },
+      )
       .setOrigin(0.5);
   }
 
