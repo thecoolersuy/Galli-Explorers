@@ -10,6 +10,8 @@ const config = {
   width: window.innerWidth,
   height: window.innerHeight,
   backgroundColor: "#f1e8b6",
+  pixelArt: true,
+  roundPixels: true,
   scene: [BootScene, MenuScene, Level1Scene, UIScene],
 };
 

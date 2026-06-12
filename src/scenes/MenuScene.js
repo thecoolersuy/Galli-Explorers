@@ -9,15 +9,28 @@ export default class MenuScene extends Phaser.Scene {
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
 
+    const textConfig = {
+      fontFamily: "EarlyGameBoy",
+      fontSize: "45px",
+      align: "center",
+      stroke: "#152729",
+      strokeThickness: 12,
+      letterSpacing: 0,
+    };
+
+    // Shadow layer — offset behind, dark color
     this.add
-      .text(cx, cy - 70, "GALLI\nEXPLORER", {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "49px",
+      .text(cx + 4, cy - 100 + 10, "GALLI\nEXPLORER", {
+        ...textConfig,
+        color: "#152729",
+      })
+      .setOrigin(0.5);
+
+    // Main text on top
+    this.add
+      .text(cx, cy - 100, "GALLI\nEXPLORER", {
+        ...textConfig,
         color: "#acb64b",
-        align: "center",
-        // backgroundColor: "#152729"
-        stroke: "#000000",
-        strokeThickness: 16,
       })
       .setOrigin(0.5);
 
@@ -25,7 +38,7 @@ export default class MenuScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        cy + 55,
+        cy + 30,
         "NAVIGATE THROUGH BHAKTAPUR'S CHAOTIC NARROW GALLIS\nAND HELP BAUCHA REACH HOME SAFELY.",
         {
           fontFamily: "EarlyGameBoy",
@@ -41,7 +54,7 @@ export default class MenuScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        cy + 122,
+        cy + 100,
         "USE ARROW KEYS OR A / D TO MOVE.\n ON PHONES: USE THE CORNER BUTTONS",
         {
           fontFamily: "EarlyGameBoy",
@@ -55,7 +68,7 @@ export default class MenuScene extends Phaser.Scene {
 
     // START TEXT
     const startText = this.add
-      .text(cx, cy + 200, "CLICK ANYWHERE TO START", {
+      .text(cx, cy + 175, "CLICK ANYWHERE TO START", {
         fontFamily: "EarlyGameBoy",
         fontSize: "16px",
         color: "#517f30",

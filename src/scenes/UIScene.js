@@ -9,7 +9,7 @@ export default class UIScene extends Phaser.Scene {
     // HUD — timer, lives, score (we'll build this out in Step 4)
     this.add.text(16, 16, "Level 1", {
       fontFamily: "EarlyGameBoy",
-      fontSize: "20px",
+      fontSize: "26px",
       color: "#1b2e24",
     });
   }
