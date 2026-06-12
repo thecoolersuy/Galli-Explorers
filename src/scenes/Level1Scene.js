@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
 
-const CELL_SIZE = 40;
+const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
 const WALL_COLOR = 0xacb64b;
 const BORDER_THICKNESS = 8;
@@ -278,14 +278,30 @@ export default class Level1Scene extends Phaser.Scene {
 
   _createObstacleSprites() {
     const S = CELL_SIZE;
-    const texture = this.textures.get("rath");
-    const source = texture.getSourceImage();
-    const scale = Math.min((S * 2) / source.width, (S * 2) / source.height);
+    const textureKey = "rath-obstacle";
+    const targetWidth = Math.max(1, Math.round(S * 1.5 * 1.2));
+    const targetHeight = Math.max(1, Math.round(S * 1.5));
+
+    if (!this.textures.exists(textureKey)) {
+      const sourceTexture = this.textures.get("rath");
+      const source = sourceTexture.getSourceImage();
+      const renderTexture = this.textures.createCanvas(
+        textureKey,
+        targetWidth,
+        targetHeight,
+      );
+      const ctx = renderTexture.context;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.clearRect(0, 0, targetWidth, targetHeight);
+      ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+      renderTexture.refresh();
+    }
 
     for (const obstacle of this.obstacles) {
-      obstacle.sprite = this.add.image(0, 0, "rath");
+      obstacle.sprite = this.add.image(0, 0, textureKey);
       obstacle.sprite.setOrigin(0.5);
-      obstacle.sprite.setScale(scale);
     }
   }
 
