@@ -1,11 +1,14 @@
-import Phaser from 'phaser';
+import Phaser from "phaser";
 
 export default class BootScene extends Phaser.Scene {
-  constructor() { super('BootScene'); }
+  constructor() {
+    super("BootScene");
+  }
 
   preload() {
-    // We'll load assets here later
-    console.log('BootScene: preloading assets...');
+    // Load images
+    this.load.image("lakhey", "src/assets/img/lakhey(final).png");
+    console.log("BootScene: preloading assets...");
   }
 
   async create() {
@@ -16,8 +19,8 @@ export default class BootScene extends Phaser.Scene {
         await document.fonts.ready;
       }
     } catch (e) {
-      console.warn('Font load wait failed:', e);
+      console.warn("Font load wait failed:", e);
     }
-    this.scene.start('MenuScene');
+    this.scene.start("MenuScene");
   }
 }

@@ -18,6 +18,12 @@ export default class MenuScene extends Phaser.Scene {
       letterSpacing: 0,
     };
 
+    // Lakhey image above title
+    this.add
+      .image(cx, cy - 200, "lakhey")
+      .setOrigin(0.5)
+      .setScale(0.6);
+
     // Shadow layer — offset behind, dark color
     this.add
       .text(cx + 4, cy - 100 + 10, "GALLI\nEXPLORER", {
