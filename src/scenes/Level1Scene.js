@@ -279,8 +279,8 @@ export default class Level1Scene extends Phaser.Scene {
   _createObstacleSprites() {
     const S = CELL_SIZE;
     const textureKey = "rath-obstacle";
-    const targetWidth = Math.max(1, Math.round(S * 1.4 * 1.2));
-    const targetHeight = Math.max(1, Math.round(S * 1.4));
+    const targetWidth = Math.max(1, Math.round(S * 1.5 * 1.2));
+    const targetHeight = Math.max(1, Math.round(S * 1.8));
 
     if (!this.textures.exists(textureKey)) {
       const sourceTexture = this.textures.get("rath");
