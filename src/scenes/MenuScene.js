@@ -8,6 +8,17 @@ export default class MenuScene extends Phaser.Scene {
   create() {
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
+    this.starting = false;
+
+    const level1StartZone = this.add
+      .zone(cx, cy, this.scale.width, this.scale.height)
+      .setOrigin(0.5)
+      .setDepth(-10)
+      .setInteractive({ useHandCursor: true });
+
+    level1StartZone.on("pointerdown", () => {
+      this._startLevel("Level1Scene", 1);
+    });
 
     const textConfig = {
       fontFamily: "EarlyGameBoy",
@@ -90,9 +101,38 @@ export default class MenuScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    this.input.once("pointerdown", () => {
-      this.scene.start("Level1Scene");
-      this.scene.launch("UIScene");
+    const level2Button = this.add
+      .text(cx, cy + 230, "LEVEL 2", {
+        fontFamily: "EarlyGameBoy",
+        fontSize: "18px",
+        color: "#f1e8b6",
+        backgroundColor: "#517f30",
+        padding: { x: 18, y: 10 },
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    level2Button.on("pointerdown", (pointer, localX, localY, event) => {
+      if (event) event.stopPropagation();
+      this._startLevel("Level2Scene", 2);
     });
+
+    level2Button.on("pointerover", () => {
+      level2Button.setScale(1.08);
+    });
+
+    level2Button.on("pointerout", () => {
+      level2Button.setScale(1);
+    });
+  }
+
+  _startLevel(sceneKey, level) {
+    if (this.starting) return;
+
+    this.starting = true;
+    this.scene.stop("UIScene");
+    this.scene.start(sceneKey);
+    this.scene.launch("UIScene", { level });
   }
 }
