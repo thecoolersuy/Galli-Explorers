@@ -14,6 +14,18 @@ const OBSTACLE_FILL = 0xc48a3a;
 const OBSTACLE_DARK = 0x5c3819;
 const OBSTACLE_ACCENT = 0x2f5d2f;
 const OBSTACLE_MOVE_MS = 380;
+const DARKNESS_COLOR = "rgba(3, 4, 8, 1)";
+const TORCH_CORE_RADIUS = 28;
+const TORCH_RADIUS = 145;
+const MAZE_DEPTH = 0;
+const WALL_DEPTH = 10;
+const GOAL_DEPTH = 15;
+const OBSTACLE_DEPTH = 20;
+const DARKNESS_DEPTH = 50;
+const PLAYER_DEPTH = 60;
+const MESSAGE_DEPTH = 80;
+
+let darknessTextureId = 0;
 
 export default class Level2Scene extends Phaser.Scene {
   constructor() {
@@ -41,6 +53,7 @@ export default class Level2Scene extends Phaser.Scene {
     this._placeObstacles();
     this._drawMaze();
     this._setupPlayer();
+    this._setupFlashlight();
     this._setupInput();
   }
 
@@ -174,6 +187,7 @@ export default class Level2Scene extends Phaser.Scene {
     const S = CELL_SIZE;
 
     this.cellGraphics = this.add.graphics();
+    this.cellGraphics.setDepth(MAZE_DEPTH);
 
     for (let cell of grid) {
       const x = offsetX + cell.c * S;
@@ -192,6 +206,7 @@ export default class Level2Scene extends Phaser.Scene {
     );
 
     this.wallGraphics = this.add.graphics();
+    this.wallGraphics.setDepth(WALL_DEPTH);
 
     for (let cell of grid) {
       const x = offsetX + cell.c * S;
@@ -254,7 +269,8 @@ export default class Level2Scene extends Phaser.Scene {
           color: "#1b2e24",
         },
       )
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(GOAL_DEPTH);
 
     this._createObstacleSprites();
     this._drawObstacles();
@@ -302,12 +318,14 @@ export default class Level2Scene extends Phaser.Scene {
     for (const obstacle of this.obstacles) {
       obstacle.sprite = this.add.image(0, 0, textureKey);
       obstacle.sprite.setOrigin(0.5);
+      obstacle.sprite.setDepth(OBSTACLE_DEPTH);
     }
   }
 
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
     this.playerGraphic = this.add.graphics();
+    this.playerGraphic.setDepth(PLAYER_DEPTH);
     this._drawPlayer();
   }
 
@@ -324,6 +342,67 @@ export default class Level2Scene extends Phaser.Scene {
     );
   }
 
+  _setupFlashlight() {
+    const textureKey = `level2-darkness-${darknessTextureId}`;
+    darknessTextureId += 1;
+
+    this.darknessTexture = this.textures.createCanvas(
+      textureKey,
+      this.scale.width,
+      this.scale.height,
+    );
+    this.darknessImage = this.add
+      .image(0, 0, textureKey)
+      .setOrigin(0)
+      .setDepth(DARKNESS_DEPTH);
+
+    this._updateFlashlight();
+  }
+
+  _getPlayerCenter() {
+    const S = CELL_SIZE;
+
+    return {
+      x: this.offsetX + this.playerPos.c * S + S / 2,
+      y: this.offsetY + this.playerPos.r * S + S / 2,
+    };
+  }
+
+  _updateFlashlight() {
+    if (!this.darknessTexture) return;
+
+    const ctx = this.darknessTexture.context;
+    const { x, y } = this._getPlayerCenter();
+
+    ctx.clearRect(0, 0, this.scale.width, this.scale.height);
+    ctx.fillStyle = DARKNESS_COLOR;
+    ctx.fillRect(0, 0, this.scale.width, this.scale.height);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+
+    const gradient = ctx.createRadialGradient(
+      x,
+      y,
+      TORCH_CORE_RADIUS,
+      x,
+      y,
+      TORCH_RADIUS,
+    );
+    gradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+    gradient.addColorStop(0.38, "rgba(0, 0, 0, 0.88)");
+    gradient.addColorStop(0.72, "rgba(0, 0, 0, 0.34)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, TORCH_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    this.darknessTexture.refresh();
+  }
+
   _setupInput() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys("W,A,S,D");
@@ -334,7 +413,12 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   update(time) {
-    if (this.gameOver || !this.obstacles.length) return;
+    if (this.gameOver) return;
+
+    if (!this.obstacles.length) {
+      this._updateFlashlight();
+      return;
+    }
 
     let hitPlayer = false;
 
@@ -356,6 +440,7 @@ export default class Level2Scene extends Phaser.Scene {
     }
 
     this._drawObstacles();
+    this._updateFlashlight();
 
     if (hitPlayer) {
       this._triggerGameOver();
@@ -384,6 +469,7 @@ export default class Level2Scene extends Phaser.Scene {
     if (nr !== r || nc !== c) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
+      this._updateFlashlight();
       this._checkWin();
     }
   }
@@ -415,7 +501,7 @@ export default class Level2Scene extends Phaser.Scene {
         },
       )
       .setOrigin(0.5)
-      .setDepth(10);
+      .setDepth(MESSAGE_DEPTH);
   }
 
   _checkWin() {
@@ -438,7 +524,7 @@ export default class Level2Scene extends Phaser.Scene {
           },
         )
         .setOrigin(0.5)
-        .setDepth(10);
+        .setDepth(MESSAGE_DEPTH);
     }
   }
 }
