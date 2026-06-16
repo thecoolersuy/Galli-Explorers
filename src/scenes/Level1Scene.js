@@ -395,28 +395,71 @@ export default class Level1Scene extends Phaser.Scene {
     );
   }
 
-  _triggerGameOver() {
-    if (this.gameOver) return;
+  _showGameOverButtons() {
+  const centerX = this.scale.width / 2;
+  const centerY = this.scale.height / 2 + 80;
 
-    this.gameOver = true;
-    this.input.keyboard.removeAllListeners();
+  const buttonStyle = {
+    fontFamily: "EarlyGameBoy",
+    fontSize: "20px",
+    color: "#f8fdbb",
+    backgroundColor: "#013236",
+    padding: { x: 16, y: 10 },
+  };
 
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        "You were hit by the jatra crowd!",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "28px",
-          color: "#f8fdbb",
-          backgroundColor: "#5d4020",
-          padding: { x: 18, y: 10 },
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(10);
-  }
+  const retryBtn = this.add
+    .text(centerX - 100, centerY, "RETRY", buttonStyle)
+    .setOrigin(0.5)
+    .setDepth(200)
+    .setInteractive({ useHandCursor: true });
+
+  const exitBtn = this.add
+    .text(centerX + 100, centerY, "EXIT", buttonStyle)
+    .setOrigin(0.5)
+    .setDepth(200)
+    .setInteractive({ useHandCursor: true });
+
+  retryBtn.on("pointerdown", () => {
+    this.scene.stop("UIScene");
+    this.scene.restart();
+    this.scene.launch("UIScene", { level: 1 });
+  });
+
+  exitBtn.on("pointerdown", () => {
+    this.scene.stop("UIScene");
+    this.scene.start("MenuScene");
+  });
+
+  [retryBtn, exitBtn].forEach((btn) => {
+    btn.on("pointerover", () => btn.setScale(1.1));
+    btn.on("pointerout", () => btn.setScale(1));
+  });
+}
+
+_triggerGameOver() {
+  if (this.gameOver) return;
+
+  this.gameOver = true;
+  this.input.keyboard.removeAllListeners();
+
+  this.add
+    .text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      "You were hit by the jatra crowd!",
+      {
+        fontFamily: "EarlyGameBoy",
+        fontSize: "28px",
+        color: "#f8fdbb",
+        backgroundColor: "#5d4020",
+        padding: { x: 18, y: 10 },
+      },
+    )
+    .setOrigin(0.5)
+    .setDepth(10);
+
+  this._showGameOverButtons();
+}
 
   _checkWin() {
     const { r, c } = this.playerPos;
