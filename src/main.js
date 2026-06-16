@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import BootScene from "./scenes/BootScene.js";
 import MenuScene from "./scenes/MenuScene.js";
 import Level1Scene from "./scenes/Level1Scene.js";
+import Level2Scene from "./scenes/Level2Scene.js";
 import UIScene from "./scenes/UIScene.js";
 import "./style.css";
 
@@ -12,7 +13,7 @@ const config = {
   backgroundColor: "#f1e8b6",
   pixelArt: true,
   roundPixels: true,
-  scene: [BootScene, MenuScene, Level1Scene, UIScene],
+  scene: [BootScene, MenuScene, Level1Scene, Level2Scene, UIScene],
 };
 
 new Phaser.Game(config);

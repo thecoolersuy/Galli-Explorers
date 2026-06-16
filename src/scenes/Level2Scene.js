@@ -1,4 +1,3 @@
-
 import Phaser from "phaser";
 import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
@@ -186,7 +185,6 @@ export default class Level2Scene extends Phaser.Scene {
   _drawMaze() {
     const { nrows, ncols, grid, offsetX, offsetY } = this;
     const S = CELL_SIZE;
-    
 
     this.cellGraphics = this.add.graphics();
     this.cellGraphics.setDepth(MAZE_DEPTH);
@@ -400,9 +398,9 @@ export default class Level2Scene extends Phaser.Scene {
     // This creates the hard chunky pixelated border look
     const edgeStart = R * 0.75;
     const startCol = Math.floor((x - R) / B);
-    const endCol   = Math.ceil((x + R) / B);
+    const endCol = Math.ceil((x + R) / B);
     const startRow = Math.floor((y - R) / B);
-    const endRow   = Math.ceil((y + R) / B);
+    const endRow = Math.ceil((y + R) / B);
 
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
@@ -511,69 +509,69 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _showGameOverButtons() {
-  const centerX = this.scale.width / 2;
-  const centerY = this.scale.height / 2 + 80;
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 + 80;
 
-  const buttonStyle = {
-    fontFamily: "EarlyGameBoy",
-    fontSize: "20px",
-    color: "#f8fdbb",
-    backgroundColor: "#013236",
-    padding: { x: 16, y: 10 },
-  };
+    const buttonStyle = {
+      fontFamily: "EarlyGameBoy",
+      fontSize: "20px",
+      color: "#f8fdbb",
+      backgroundColor: "#013236",
+      padding: { x: 16, y: 10 },
+    };
 
-  const retryBtn = this.add
-    .text(centerX - 100, centerY, "RETRY", buttonStyle)
-    .setOrigin(0.5)
-    .setDepth(200)
-    .setInteractive({ useHandCursor: true });
+    const retryBtn = this.add
+      .text(centerX - 100, centerY, "RETRY", buttonStyle)
+      .setOrigin(0.5)
+      .setDepth(200)
+      .setInteractive({ useHandCursor: true });
 
-  const exitBtn = this.add
-    .text(centerX + 100, centerY, "EXIT", buttonStyle)
-    .setOrigin(0.5)
-    .setDepth(200)
-    .setInteractive({ useHandCursor: true });
+    const exitBtn = this.add
+      .text(centerX + 100, centerY, "EXIT", buttonStyle)
+      .setOrigin(0.5)
+      .setDepth(200)
+      .setInteractive({ useHandCursor: true });
 
-  retryBtn.on("pointerdown", () => {
-    this.scene.stop("UIScene");
-    this.scene.restart();
-    this.scene.launch("UIScene", { level: 2 });
-  });
+    retryBtn.on("pointerdown", () => {
+      this.scene.stop("UIScene");
+      this.scene.restart();
+      this.scene.launch("UIScene", { level: 2 });
+    });
 
-  exitBtn.on("pointerdown", () => {
-    this.scene.stop("UIScene");
-    this.scene.start("MenuScene");
-  });
+    exitBtn.on("pointerdown", () => {
+      this.scene.stop("UIScene");
+      this.scene.start("MenuScene");
+    });
 
-  [retryBtn, exitBtn].forEach((btn) => {
-    btn.on("pointerover", () => btn.setScale(1.1));
-    btn.on("pointerout", () => btn.setScale(1));
-  });
-}
-_triggerGameOver() {
-  if (this.gameOver) return;
+    [retryBtn, exitBtn].forEach((btn) => {
+      btn.on("pointerover", () => btn.setScale(1.1));
+      btn.on("pointerout", () => btn.setScale(1));
+    });
+  }
+  _triggerGameOver() {
+    if (this.gameOver) return;
 
-  this.gameOver = true;
-  this.input.keyboard.removeAllListeners();
+    this.gameOver = true;
+    this.input.keyboard.removeAllListeners();
 
-  this.add
-    .text(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      "You were hit by the jatra crowd!",
-      {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "28px",
-        color: "#f8fdbb",
-        backgroundColor: "#5d4020",
-        padding: { x: 18, y: 10 },
-      },
-    )
-    .setOrigin(0.5)
-    .setDepth(MESSAGE_DEPTH);
+    this.add
+      .text(
+        this.scale.width / 2,
+        this.scale.height / 2,
+        "You were hit by the jatra crowd!",
+        {
+          fontFamily: "EarlyGameBoy",
+          fontSize: "28px",
+          color: "#f8fdbb",
+          backgroundColor: "#5d4020",
+          padding: { x: 18, y: 10 },
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(MESSAGE_DEPTH);
 
-  this._showGameOverButtons();
-}
+    this._showGameOverButtons();
+  }
 
   _checkWin() {
     const { r, c } = this.playerPos;
@@ -584,8 +582,8 @@ _triggerGameOver() {
       this.add
         .text(
           this.scale.width / 2,
-          this.scale.height / 2,
-          "🎉 You reached the hat!",
+          this.scale.height / 2 - 50,
+          "🎉 You reached home!",
           {
             fontFamily: "EarlyGameBoy",
             fontSize: "36px",
@@ -596,6 +594,35 @@ _triggerGameOver() {
         )
         .setOrigin(0.5)
         .setDepth(MESSAGE_DEPTH);
+
+      this._showVictoryButtons();
     }
+  }
+
+  _showVictoryButtons() {
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 + 80;
+
+    const buttonStyle = {
+      fontFamily: "EarlyGameBoy",
+      fontSize: "20px",
+      color: "#f8fdbb",
+      backgroundColor: "#013236",
+      padding: { x: 16, y: 10 },
+    };
+
+    const menuBtn = this.add
+      .text(centerX, centerY, "BACK TO MENU", buttonStyle)
+      .setOrigin(0.5)
+      .setDepth(MESSAGE_DEPTH)
+      .setInteractive({ useHandCursor: true });
+
+    menuBtn.on("pointerdown", () => {
+      this.scene.stop("UIScene");
+      this.scene.start("MenuScene");
+    });
+
+    menuBtn.on("pointerover", () => menuBtn.setScale(1.1));
+    menuBtn.on("pointerout", () => menuBtn.setScale(1));
   }
 }
