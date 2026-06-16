@@ -14,10 +14,22 @@ const OBSTACLE_FILL = 0xc48a3a;
 const OBSTACLE_DARK = 0x5c3819;
 const OBSTACLE_ACCENT = 0x2f5d2f;
 const OBSTACLE_MOVE_MS = 380;
+const DARKNESS_COLOR = "rgba(3, 4, 8, 1)";
+const TORCH_RADIUS = 130;
+const PIXEL_BLOCK = 16; // size of each checkerboard cell in the torch
+const MAZE_DEPTH = 0;
+const WALL_DEPTH = 10;
+const GOAL_DEPTH = 15;
+const OBSTACLE_DEPTH = 20;
+const DARKNESS_DEPTH = 50;
+const PLAYER_DEPTH = 60;
+const MESSAGE_DEPTH = 80;
 
-export default class Level1Scene extends Phaser.Scene {
+let darknessTextureId = 0;
+
+export default class Level2Scene extends Phaser.Scene {
   constructor() {
-    super("Level1Scene");
+    super("Level2Scene");
   }
 
   preload() {
@@ -41,6 +53,7 @@ export default class Level1Scene extends Phaser.Scene {
     this._placeObstacles();
     this._drawMaze();
     this._setupPlayer();
+    this._setupFlashlight();
     this._setupInput();
   }
 
@@ -174,6 +187,7 @@ export default class Level1Scene extends Phaser.Scene {
     const S = CELL_SIZE;
 
     this.cellGraphics = this.add.graphics();
+    this.cellGraphics.setDepth(MAZE_DEPTH);
 
     for (let cell of grid) {
       const x = offsetX + cell.c * S;
@@ -192,6 +206,7 @@ export default class Level1Scene extends Phaser.Scene {
     );
 
     this.wallGraphics = this.add.graphics();
+    this.wallGraphics.setDepth(WALL_DEPTH);
 
     for (let cell of grid) {
       const x = offsetX + cell.c * S;
@@ -254,7 +269,8 @@ export default class Level1Scene extends Phaser.Scene {
           color: "#1b2e24",
         },
       )
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(GOAL_DEPTH);
 
     this._createObstacleSprites();
     this._drawObstacles();
@@ -302,12 +318,14 @@ export default class Level1Scene extends Phaser.Scene {
     for (const obstacle of this.obstacles) {
       obstacle.sprite = this.add.image(0, 0, textureKey);
       obstacle.sprite.setOrigin(0.5);
+      obstacle.sprite.setDepth(OBSTACLE_DEPTH);
     }
   }
 
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
     this.playerGraphic = this.add.graphics();
+    this.playerGraphic.setDepth(PLAYER_DEPTH);
     this._drawPlayer();
   }
 
@@ -324,6 +342,94 @@ export default class Level1Scene extends Phaser.Scene {
     );
   }
 
+  _setupFlashlight() {
+    const textureKey = `level2-darkness-${darknessTextureId}`;
+    darknessTextureId += 1;
+
+    this.darknessTexture = this.textures.createCanvas(
+      textureKey,
+      this.scale.width,
+      this.scale.height,
+    );
+    this.darknessImage = this.add
+      .image(0, 0, textureKey)
+      .setOrigin(0)
+      .setDepth(DARKNESS_DEPTH);
+
+    this._updateFlashlight();
+  }
+
+  _getPlayerCenter() {
+    const S = CELL_SIZE;
+
+    return {
+      x: this.offsetX + this.playerPos.c * S + S / 2,
+      y: this.offsetY + this.playerPos.r * S + S / 2,
+    };
+  }
+
+  _updateFlashlight() {
+    if (!this.darknessTexture) return;
+
+    const ctx = this.darknessTexture.context;
+    const { x, y } = this._getPlayerCenter();
+    const B = PIXEL_BLOCK;
+    const R = TORCH_RADIUS;
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // Fill entire canvas with darkness
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = DARKNESS_COLOR;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+
+    // Step 1: punch out a clean solid circle for the inner visible area
+    ctx.fillStyle = "rgba(0, 0, 0, 1)";
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Step 2: paint darkness back over the edge using pixel blocks
+    // This creates the hard chunky pixelated border look
+    const edgeStart = R * 0.75;
+    const startCol = Math.floor((x - R) / B);
+    const endCol = Math.ceil((x + R) / B);
+    const startRow = Math.floor((y - R) / B);
+    const endRow = Math.ceil((y + R) / B);
+
+    for (let row = startRow; row <= endRow; row++) {
+      for (let col = startCol; col <= endCol; col++) {
+        const bx = col * B + B / 2;
+        const by = row * B + B / 2;
+        const dist = Math.sqrt((bx - x) * (bx - x) + (by - y) * (by - y));
+
+        // Only affect the edge ring
+        if (dist <= edgeStart || dist > R + B) continue;
+
+        // How deep into the edge ring (0 = inner edge, 1 = outer edge)
+        const t = (dist - edgeStart) / (R - edgeStart);
+
+        // Checkerboard: one set of blocks fades in earlier than the other
+        const isLight = (row + col) % 2 === 0;
+        const threshold = isLight ? 0.45 : 0.65;
+
+        // Block is dark (darkness painted back) if past its threshold
+        if (t < threshold) continue;
+
+        const alpha = Math.min(1, (t - threshold) / (1 - threshold));
+        ctx.fillStyle = `rgba(3, 4, 8, ${alpha})`;
+        ctx.fillRect(col * B, row * B, B, B);
+      }
+    }
+
+    this.darknessTexture.refresh();
+  }
+
   _setupInput() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys("W,A,S,D");
@@ -334,7 +440,12 @@ export default class Level1Scene extends Phaser.Scene {
   }
 
   update(time) {
-    if (this.gameOver || !this.obstacles.length) return;
+    if (this.gameOver) return;
+
+    if (!this.obstacles.length) {
+      this._updateFlashlight();
+      return;
+    }
 
     let hitPlayer = false;
 
@@ -356,6 +467,7 @@ export default class Level1Scene extends Phaser.Scene {
     }
 
     this._drawObstacles();
+    this._updateFlashlight();
 
     if (hitPlayer) {
       this._triggerGameOver();
@@ -384,6 +496,7 @@ export default class Level1Scene extends Phaser.Scene {
     if (nr !== r || nc !== c) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
+      this._updateFlashlight();
       this._checkWin();
     }
   }
@@ -422,7 +535,7 @@ export default class Level1Scene extends Phaser.Scene {
     retryBtn.on("pointerdown", () => {
       this.scene.stop("UIScene");
       this.scene.restart();
-      this.scene.launch("UIScene", { level: 1 });
+      this.scene.launch("UIScene", { level: 2 });
     });
 
     exitBtn.on("pointerdown", () => {
@@ -435,7 +548,6 @@ export default class Level1Scene extends Phaser.Scene {
       btn.on("pointerout", () => btn.setScale(1));
     });
   }
-
   _triggerGameOver() {
     if (this.gameOver) return;
 
@@ -456,7 +568,7 @@ export default class Level1Scene extends Phaser.Scene {
         },
       )
       .setOrigin(0.5)
-      .setDepth(10);
+      .setDepth(MESSAGE_DEPTH);
 
     this._showGameOverButtons();
   }
@@ -470,7 +582,7 @@ export default class Level1Scene extends Phaser.Scene {
       this.add
         .text(
           this.scale.width / 2,
-          this.scale.height / 2,
+          this.scale.height / 2 - 50,
           "🎉 You reached home!",
           {
             fontFamily: "EarlyGameBoy",
@@ -481,13 +593,36 @@ export default class Level1Scene extends Phaser.Scene {
           },
         )
         .setOrigin(0.5)
-        .setDepth(10);
+        .setDepth(MESSAGE_DEPTH);
 
-      this.time.delayedCall(2000, () => {
-        this.scene.stop("UIScene");
-        this.scene.start("Level2Scene");
-        this.scene.launch("UIScene", { level: 2 });
-      });
+      this._showVictoryButtons();
     }
+  }
+
+  _showVictoryButtons() {
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 + 80;
+
+    const buttonStyle = {
+      fontFamily: "EarlyGameBoy",
+      fontSize: "20px",
+      color: "#f8fdbb",
+      backgroundColor: "#013236",
+      padding: { x: 16, y: 10 },
+    };
+
+    const menuBtn = this.add
+      .text(centerX, centerY, "BACK TO MENU", buttonStyle)
+      .setOrigin(0.5)
+      .setDepth(MESSAGE_DEPTH)
+      .setInteractive({ useHandCursor: true });
+
+    menuBtn.on("pointerdown", () => {
+      this.scene.stop("UIScene");
+      this.scene.start("MenuScene");
+    });
+
+    menuBtn.on("pointerover", () => menuBtn.setScale(1.1));
+    menuBtn.on("pointerout", () => menuBtn.setScale(1));
   }
 }
