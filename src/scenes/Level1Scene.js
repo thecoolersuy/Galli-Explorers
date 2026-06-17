@@ -25,6 +25,11 @@ export default class Level1Scene extends Phaser.Scene {
       "rath",
       new URL("../assets/img/rath.png", import.meta.url).href,
     );
+
+    this.load.audio(
+      "rath-dhim",
+      new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
+    );
   }
 
   create() {
@@ -42,6 +47,13 @@ export default class Level1Scene extends Phaser.Scene {
     this._drawMaze();
     this._setupPlayer();
     this._setupInput();
+
+    this.rathSound = this.sound.add("rath-dhim", {
+      loop: true,
+      volume: 0,
+    });
+
+    this.rathSound.play();
   }
 
   _buildMaze() {
@@ -333,6 +345,31 @@ export default class Level1Scene extends Phaser.Scene {
     });
   }
 
+  _updateRathSound() {
+    if (!this.rathSound) return;
+
+    const player = this.playerPos;
+    let minDist = Infinity;
+
+    for (const obstacle of this.obstacles) {
+      const r = obstacle.currentCell.r;
+      const c = obstacle.currentCell.c;
+
+      const dist = Math.abs(player.r - r) + Math.abs(player.c - c);
+      if (dist < minDist) minDist = dist;
+    }
+
+    const MAX_HEAR_DIST = 6;
+
+    if (minDist > MAX_HEAR_DIST) {
+      this.rathSound.setVolume(0);
+      return;
+    }
+
+    const volume = Phaser.Math.Clamp(1 - minDist / MAX_HEAR_DIST, 0, 1);
+    this.rathSound.setVolume(volume);
+  }
+
   update(time) {
     if (this.gameOver || !this.obstacles.length) return;
 
@@ -356,6 +393,7 @@ export default class Level1Scene extends Phaser.Scene {
     }
 
     this._drawObstacles();
+    this._updateRathSound();
 
     if (hitPlayer) {
       this._triggerGameOver();
@@ -439,6 +477,10 @@ export default class Level1Scene extends Phaser.Scene {
   _triggerGameOver() {
     if (this.gameOver) return;
 
+    if (this.rathSound) {
+      this.rathSound.stop();
+    }
+
     this.gameOver = true;
     this.input.keyboard.removeAllListeners();
 
@@ -466,6 +508,10 @@ export default class Level1Scene extends Phaser.Scene {
     const { nrows, ncols } = this;
 
     if (r === nrows - 1 && c === ncols - 1) {
+      if (this.rathSound) {
+        this.rathSound.stop();
+      }
+
       this.input.keyboard.removeAllListeners();
       this.add
         .text(
