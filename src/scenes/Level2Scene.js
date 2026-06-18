@@ -42,6 +42,16 @@ export default class Level2Scene extends Phaser.Scene {
       "rath-dhim",
       new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
     );
+
+    // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
+    this.load.spritesheet(
+      "player-girl",
+      new URL("../assets/img/1.png", import.meta.url).href,
+      {
+        frameWidth: 230,
+        frameHeight: 430,
+      }
+    );
   }
 
   create() {
@@ -57,6 +67,7 @@ export default class Level2Scene extends Phaser.Scene {
     this._buildMaze();
     this._placeObstacles();
     this._drawMaze();
+    this._createPlayerAnimation();
     this._setupPlayer();
     this._setupFlashlight();
     this._setupInput();
@@ -336,22 +347,49 @@ export default class Level2Scene extends Phaser.Scene {
 
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
-    this.playerGraphic = this.add.graphics();
-    this.playerGraphic.setDepth(PLAYER_DEPTH);
-    this._drawPlayer();
+    this.lastDirection = 1; // 1 = right, -1 = left
+    this.isPlayerMoving = false;
+
+    // Create sprite: scale UP to prominently fill grid cell
+    // Original height: 430px, target: ~67px (1.5x cell size)
+    const PLAYER_SCALE = 1.5; // 1.5x the cell size
+    const scale = (CELL_SIZE * PLAYER_SCALE) / 430;
+
+    this.playerSprite = this.add.sprite(
+      this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
+      this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
+      "player-girl",
+      0
+    );
+    this.playerSprite.setScale(scale);
+    this.playerSprite.setDepth(PLAYER_DEPTH);
+    // Start on standing frame (frame 0)
+    this.playerSprite.setFrame(0);
   }
 
   _drawPlayer() {
     const { offsetX, offsetY, playerPos } = this;
     const S = CELL_SIZE;
 
-    this.playerGraphic.clear();
-    this.playerGraphic.fillStyle(PLAYER_COLOR, 1);
-    this.playerGraphic.fillCircle(
+    this.playerSprite.setPosition(
       offsetX + playerPos.c * S + S / 2,
-      offsetY + playerPos.r * S + S / 2,
-      S / 2 - 6,
+      offsetY + playerPos.r * S + S / 2
     );
+  }
+
+  _createPlayerAnimation() {
+    // Create 12-frame walking animation at 10 FPS (100ms per frame)
+    if (!this.anims.exists("player-walk")) {
+      this.anims.create({
+        key: "player-walk",
+        frames: this.anims.generateFrameNumbers("player-girl", {
+          start: 0,
+          end: 11,
+        }),
+        frameRate: 10,
+        repeat: -1, // Loop indefinitely
+      });
+    }
   }
 
   _setupFlashlight() {
@@ -521,10 +559,20 @@ export default class Level2Scene extends Phaser.Scene {
     let nr = r;
     let nc = c;
 
-    if ((key === "ArrowUp" || key === "w") && !cell.walls[0]) nr--;
-    if ((key === "ArrowRight" || key === "d") && !cell.walls[1]) nc++;
-    if ((key === "ArrowDown" || key === "s") && !cell.walls[2]) nr++;
-    if ((key === "ArrowLeft" || key === "a") && !cell.walls[3]) nc--;
+    // Determine direction and update flip state
+    if ((key === "ArrowUp" || key === "w") && !cell.walls[0]) {
+      nr--;
+    } else if ((key === "ArrowRight" || key === "d") && !cell.walls[1]) {
+      nc++;
+      this.lastDirection = 1; // Face right
+      if (this.playerSprite) this.playerSprite.setFlipX(false);
+    } else if ((key === "ArrowDown" || key === "s") && !cell.walls[2]) {
+      nr++;
+    } else if ((key === "ArrowLeft" || key === "a") && !cell.walls[3]) {
+      nc--;
+      this.lastDirection = -1; // Face left
+      if (this.playerSprite) this.playerSprite.setFlipX(true);
+    }
 
     if (this._isObstacleAt(nr, nc)) {
       this._triggerGameOver();
@@ -534,6 +582,21 @@ export default class Level2Scene extends Phaser.Scene {
     if (nr !== r || nc !== c) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
+      
+      // Start walking animation
+      this.isPlayerMoving = true;
+      this.playerSprite.play("player-walk");
+      
+      // Stop animation and return to standing frame (frame 0) after 300ms
+      if (this.playerMoveTimer) {
+        this.playerMoveTimer.remove(false);
+      }
+      this.playerMoveTimer = this.time.delayedCall(300, () => {
+        this.isPlayerMoving = false;
+        this.playerSprite.stop();
+        this.playerSprite.setFrame(0);
+      });
+      
       this._updateFlashlight();
       this._checkWin();
     }
