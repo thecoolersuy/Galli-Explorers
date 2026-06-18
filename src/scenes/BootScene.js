@@ -8,6 +8,13 @@ export default class BootScene extends Phaser.Scene {
   preload() {
     // Load images
     this.load.image("lakhey", "src/assets/img/lakhey(final).png");
+
+    // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
+    this.load.spritesheet("player-girl", "src/assets/img/1.png", {
+      frameWidth: 230,
+      frameHeight: 430,
+    });
+
     console.log("BootScene: preloading assets...");
   }
 
