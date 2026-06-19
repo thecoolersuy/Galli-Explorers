@@ -38,6 +38,11 @@ export default class Level2Scene extends Phaser.Scene {
       new URL("../assets/img/rath.png", import.meta.url).href,
     );
 
+    this.load.image(
+      "ghar",
+      new URL("../assets/img/ghar.png", import.meta.url).href,
+    );
+
     this.load.audio(
       "rath-dhim",
       new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
@@ -282,17 +287,13 @@ export default class Level2Scene extends Phaser.Scene {
     }
 
     this.add
-      .text(
+      .image(
         offsetX + goal.c * S + S / 2,
         offsetY + goal.r * S + S / 2,
-        "GHAR",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "22px",
-          color: "#1b2e24",
-        },
+        "ghar"
       )
       .setOrigin(0.5)
+      .setScale(0.12)
       .setDepth(GOAL_DEPTH);
 
     this._createObstacleSprites();
