@@ -43,6 +43,11 @@ export default class Level2Scene extends Phaser.Scene {
       new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
     );
 
+    this.load.audio(
+      "footsteps-wood",
+      new URL("../assets/audio/footstep_wood_000.ogg", import.meta.url).href,
+    );
+
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
     this.load.spritesheet(
       "player-girl",
@@ -50,7 +55,7 @@ export default class Level2Scene extends Phaser.Scene {
       {
         frameWidth: 230,
         frameHeight: 430,
-      }
+      },
     );
   }
 
@@ -75,6 +80,10 @@ export default class Level2Scene extends Phaser.Scene {
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
       volume: 0,
+    });
+
+    this.footstepSound = this.sound.add("footsteps-wood", {
+      volume: 1,
     });
 
     this.rathSound.play();
@@ -359,7 +368,7 @@ export default class Level2Scene extends Phaser.Scene {
       this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
       this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
       "player-girl",
-      0
+      0,
     );
     this.playerSprite.setScale(scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
@@ -373,7 +382,7 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.playerSprite.setPosition(
       offsetX + playerPos.c * S + S / 2,
-      offsetY + playerPos.r * S + S / 2
+      offsetY + playerPos.r * S + S / 2,
     );
   }
 
@@ -582,11 +591,12 @@ export default class Level2Scene extends Phaser.Scene {
     if (nr !== r || nc !== c) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
-      
+      this._playFootstepSound();
+
       // Start walking animation
       this.isPlayerMoving = true;
       this.playerSprite.play("player-walk");
-      
+
       // Stop animation and return to standing frame (frame 0) after 300ms
       if (this.playerMoveTimer) {
         this.playerMoveTimer.remove(false);
@@ -596,10 +606,17 @@ export default class Level2Scene extends Phaser.Scene {
         this.playerSprite.stop();
         this.playerSprite.setFrame(0);
       });
-      
+
       this._updateFlashlight();
       this._checkWin();
     }
+  }
+
+  _playFootstepSound() {
+    if (!this.footstepSound) return;
+
+    this.footstepSound.stop();
+    this.footstepSound.play();
   }
 
   _isObstacleAt(r, c) {

@@ -12,9 +12,9 @@ export default class Cell {
 
   createNeighbors(grid) {
     const { r, c, nrows, ncols } = this;
-    if (r > 0)         this.neighbors.push(grid[(r - 1) * ncols + c]); // Top
+    if (r > 0) this.neighbors.push(grid[(r - 1) * ncols + c]); // Top
     if (c < ncols - 1) this.neighbors.push(grid[r * ncols + (c + 1)]); // Right
     if (r < nrows - 1) this.neighbors.push(grid[(r + 1) * ncols + c]); // Bottom
-    if (c > 0)         this.neighbors.push(grid[r * ncols + (c - 1)]); // Left
+    if (c > 0) this.neighbors.push(grid[r * ncols + (c - 1)]); // Left
   }
 }

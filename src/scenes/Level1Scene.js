@@ -31,6 +31,11 @@ export default class Level1Scene extends Phaser.Scene {
       new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
     );
 
+    this.load.audio(
+      "footsteps-wood",
+      new URL("../assets/audio/footstep_wood_000.ogg", import.meta.url).href,
+    );
+
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
     this.load.spritesheet(
       "player-girl",
@@ -38,7 +43,7 @@ export default class Level1Scene extends Phaser.Scene {
       {
         frameWidth: 230,
         frameHeight: 430,
-      }
+      },
     );
   }
 
@@ -62,6 +67,10 @@ export default class Level1Scene extends Phaser.Scene {
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
       volume: 0,
+    });
+
+    this.footstepSound = this.sound.add("footsteps-wood", {
+      volume: 2,
     });
 
     this.rathSound.play();
@@ -332,17 +341,17 @@ export default class Level1Scene extends Phaser.Scene {
     this.playerPos = { r: 0, c: 0 };
     this.lastDirection = 1; // 1 = right, -1 = left
     this.isPlayerMoving = false;
-    
+
     // Create sprite: scale UP to prominently fill grid cell
     // Original height: 430px, target: ~67px (1.5x cell size)
     const PLAYER_SCALE = 1.5; // 1.5x the cell size
     const scale = (CELL_SIZE * PLAYER_SCALE) / 430;
-    
+
     this.playerSprite = this.add.sprite(
       this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
       this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
       "player-girl",
-      0
+      0,
     );
     this.playerSprite.setScale(scale);
     // Start on standing frame (frame 0)
@@ -352,10 +361,10 @@ export default class Level1Scene extends Phaser.Scene {
   _drawPlayer() {
     const { offsetX, offsetY, playerPos } = this;
     const S = CELL_SIZE;
-    
+
     this.playerSprite.setPosition(
       offsetX + playerPos.c * S + S / 2,
-      offsetY + playerPos.r * S + S / 2
+      offsetY + playerPos.r * S + S / 2,
     );
   }
 
@@ -470,11 +479,12 @@ export default class Level1Scene extends Phaser.Scene {
     if (nr !== r || nc !== c) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
-      
+      this._playFootstepSound();
+
       // Start walking animation
       this.isPlayerMoving = true;
       this.playerSprite.play("player-walk");
-      
+
       // Stop animation and return to standing frame (frame 0) after 300ms
       if (this.playerMoveTimer) {
         this.playerMoveTimer.remove(false);
@@ -484,9 +494,16 @@ export default class Level1Scene extends Phaser.Scene {
         this.playerSprite.stop();
         this.playerSprite.setFrame(0);
       });
-      
+
       this._checkWin();
     }
+  }
+
+  _playFootstepSound() {
+    if (!this.footstepSound) return;
+
+    this.footstepSound.stop();
+    this.footstepSound.play();
   }
 
   _isObstacleAt(r, c) {
