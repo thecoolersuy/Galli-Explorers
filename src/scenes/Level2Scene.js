@@ -14,9 +14,9 @@ const OBSTACLE_FILL = 0xc48a3a;
 const OBSTACLE_DARK = 0x5c3819;
 const OBSTACLE_ACCENT = 0x2f5d2f;
 const OBSTACLE_MOVE_MS = 380;
-const DARKNESS_COLOR = "rgba(3, 4, 8, 1)";
+const DARKNESS_COLOR = "rgba(3, 4, 8, 0.90)";
 const TORCH_RADIUS = 130;
-const PIXEL_BLOCK = 16; // size of each checkerboard cell in the torch
+const PIXEL_BLOCK = 16; // size of each pixel block in the torch
 const MAZE_DEPTH = 0;
 const WALL_DEPTH = 10;
 const GOAL_DEPTH = 15;
@@ -46,6 +46,12 @@ export default class Level2Scene extends Phaser.Scene {
     this.load.audio(
       "footsteps-wood",
       new URL("../assets/audio/footstep_wood_000.ogg", import.meta.url).href,
+    );
+
+    this.load.audio(
+      "impact-plate",
+      new URL("../assets/audio/impactPlate_medium_002.ogg", import.meta.url)
+        .href,
     );
 
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
@@ -83,7 +89,11 @@ export default class Level2Scene extends Phaser.Scene {
     });
 
     this.footstepSound = this.sound.add("footsteps-wood", {
-      volume: 1,
+      volume: 2,
+    });
+
+    this.impactSound = this.sound.add("impact-plate", {
+      volume: 0.5,
     });
 
     this.rathSound.play();
@@ -431,11 +441,15 @@ export default class Level2Scene extends Phaser.Scene {
     if (!this.darknessTexture) return;
 
     const ctx = this.darknessTexture.context;
-    const { x, y } = this._getPlayerCenter();
+    let { x, y } = this._getPlayerCenter();
     const B = PIXEL_BLOCK;
     const R = TORCH_RADIUS;
     const W = this.scale.width;
     const H = this.scale.height;
+
+    // Snap circle center to block grid so border stays locked in place
+    x = Math.round(x / B) * B;
+    y = Math.round(y / B) * B;
 
     // Fill entire canvas with darkness
     ctx.clearRect(0, 0, W, H);
@@ -445,17 +459,7 @@ export default class Level2Scene extends Phaser.Scene {
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
 
-    // Step 1: punch out a clean solid circle for the inner visible area
-    ctx.fillStyle = "rgba(0, 0, 0, 1)";
-    ctx.beginPath();
-    ctx.arc(x, y, R, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    // Step 2: paint darkness back over the edge using pixel blocks
-    // This creates the hard chunky pixelated border look
-    const edgeStart = R * 0.75;
+    // Build pixelated circular light area from square blocks
     const startCol = Math.floor((x - R) / B);
     const endCol = Math.ceil((x + R) / B);
     const startRow = Math.floor((y - R) / B);
@@ -467,24 +471,14 @@ export default class Level2Scene extends Phaser.Scene {
         const by = row * B + B / 2;
         const dist = Math.sqrt((bx - x) * (bx - x) + (by - y) * (by - y));
 
-        // Only affect the edge ring
-        if (dist <= edgeStart || dist > R + B) continue;
+        if (dist > R) continue;
 
-        // How deep into the edge ring (0 = inner edge, 1 = outer edge)
-        const t = (dist - edgeStart) / (R - edgeStart);
-
-        // Checkerboard: one set of blocks fades in earlier than the other
-        const isLight = (row + col) % 2 === 0;
-        const threshold = isLight ? 0.45 : 0.65;
-
-        // Block is dark (darkness painted back) if past its threshold
-        if (t < threshold) continue;
-
-        const alpha = Math.min(1, (t - threshold) / (1 - threshold));
-        ctx.fillStyle = `rgba(3, 4, 8, ${alpha})`;
+        ctx.fillStyle = "rgba(0, 0, 0, 1)";
         ctx.fillRect(col * B, row * B, B, B);
       }
     }
+
+    ctx.restore();
 
     this.darknessTexture.refresh();
   }
@@ -567,20 +561,34 @@ export default class Level2Scene extends Phaser.Scene {
 
     let nr = r;
     let nc = c;
+    let hitWall = false;
 
     // Determine direction and update flip state
-    if ((key === "ArrowUp" || key === "w") && !cell.walls[0]) {
-      nr--;
-    } else if ((key === "ArrowRight" || key === "d") && !cell.walls[1]) {
-      nc++;
-      this.lastDirection = 1; // Face right
-      if (this.playerSprite) this.playerSprite.setFlipX(false);
-    } else if ((key === "ArrowDown" || key === "s") && !cell.walls[2]) {
-      nr++;
-    } else if ((key === "ArrowLeft" || key === "a") && !cell.walls[3]) {
-      nc--;
-      this.lastDirection = -1; // Face left
-      if (this.playerSprite) this.playerSprite.setFlipX(true);
+    if (key === "ArrowUp" || key === "w") {
+      if (cell.walls[0]) hitWall = true;
+      else nr--;
+    } else if (key === "ArrowRight" || key === "d") {
+      if (cell.walls[1]) hitWall = true;
+      else {
+        nc++;
+        this.lastDirection = 1; // Face right
+        if (this.playerSprite) this.playerSprite.setFlipX(false);
+      }
+    } else if (key === "ArrowDown" || key === "s") {
+      if (cell.walls[2]) hitWall = true;
+      else nr++;
+    } else if (key === "ArrowLeft" || key === "a") {
+      if (cell.walls[3]) hitWall = true;
+      else {
+        nc--;
+        this.lastDirection = -1; // Face left
+        if (this.playerSprite) this.playerSprite.setFlipX(true);
+      }
+    }
+
+    if (hitWall) {
+      this._playImpactSound();
+      return;
     }
 
     if (this._isObstacleAt(nr, nc)) {
@@ -617,6 +625,13 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.footstepSound.stop();
     this.footstepSound.play();
+  }
+
+  _playImpactSound() {
+    if (!this.impactSound) return;
+
+    this.impactSound.stop();
+    this.impactSound.play();
   }
 
   _isObstacleAt(r, c) {

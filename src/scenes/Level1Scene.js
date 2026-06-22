@@ -36,6 +36,12 @@ export default class Level1Scene extends Phaser.Scene {
       new URL("../assets/audio/footstep_wood_000.ogg", import.meta.url).href,
     );
 
+    this.load.audio(
+      "impact-plate",
+      new URL("../assets/audio/impactPlate_medium_002.ogg", import.meta.url)
+        .href,
+    );
+
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
     this.load.spritesheet(
       "player-girl",
@@ -71,6 +77,10 @@ export default class Level1Scene extends Phaser.Scene {
 
     this.footstepSound = this.sound.add("footsteps-wood", {
       volume: 2,
+    });
+
+    this.impactSound = this.sound.add("impact-plate", {
+      volume: 0.5,
     });
 
     this.rathSound.play();
@@ -455,20 +465,34 @@ export default class Level1Scene extends Phaser.Scene {
 
     let nr = r;
     let nc = c;
+    let hitWall = false;
 
     // Determine direction and update flip state
-    if ((key === "ArrowUp" || key === "w") && !cell.walls[0]) {
-      nr--;
-    } else if ((key === "ArrowRight" || key === "d") && !cell.walls[1]) {
-      nc++;
-      this.lastDirection = 1; // Face right
-      if (this.playerSprite) this.playerSprite.setFlipX(false);
-    } else if ((key === "ArrowDown" || key === "s") && !cell.walls[2]) {
-      nr++;
-    } else if ((key === "ArrowLeft" || key === "a") && !cell.walls[3]) {
-      nc--;
-      this.lastDirection = -1; // Face left
-      if (this.playerSprite) this.playerSprite.setFlipX(true);
+    if (key === "ArrowUp" || key === "w") {
+      if (cell.walls[0]) hitWall = true;
+      else nr--;
+    } else if (key === "ArrowRight" || key === "d") {
+      if (cell.walls[1]) hitWall = true;
+      else {
+        nc++;
+        this.lastDirection = 1; // Face right
+        if (this.playerSprite) this.playerSprite.setFlipX(false);
+      }
+    } else if (key === "ArrowDown" || key === "s") {
+      if (cell.walls[2]) hitWall = true;
+      else nr++;
+    } else if (key === "ArrowLeft" || key === "a") {
+      if (cell.walls[3]) hitWall = true;
+      else {
+        nc--;
+        this.lastDirection = -1; // Face left
+        if (this.playerSprite) this.playerSprite.setFlipX(true);
+      }
+    }
+
+    if (hitWall) {
+      this._playImpactSound();
+      return;
     }
 
     if (this._isObstacleAt(nr, nc)) {
@@ -504,6 +528,13 @@ export default class Level1Scene extends Phaser.Scene {
 
     this.footstepSound.stop();
     this.footstepSound.play();
+  }
+
+  _playImpactSound() {
+    if (!this.impactSound) return;
+
+    this.impactSound.stop();
+    this.impactSound.play();
   }
 
   _isObstacleAt(r, c) {
