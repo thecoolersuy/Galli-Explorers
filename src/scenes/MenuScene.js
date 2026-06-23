@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import colors from "../styles/colors.js";
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
@@ -13,30 +14,30 @@ export default class MenuScene extends Phaser.Scene {
       fontFamily: "EarlyGameBoy",
       fontSize: "45px",
       align: "center",
-      stroke: "#152729",
+      stroke: colors.dark,
       strokeThickness: 12,
       letterSpacing: 0,
     };
 
     // Lakhey image above title
     this.add
-      .image(cx, cy - 200, "lakhey")
+      .image(cx, cy - 180, "lakhey")
       .setOrigin(0.5)
       .setScale(0.6);
 
     // Shadow layer — offset behind, dark color
     this.add
-      .text(cx + 4, cy - 100 + 10, "GALLI\nEXPLORER", {
+      .text(cx + 4, cy - 100 + 80, "GALLI\nEXPLORER", {
         ...textConfig,
-        color: "#152729",
+        color: colors.dark,
       })
       .setOrigin(0.5);
 
     // Main text on top
     this.add
-      .text(cx, cy - 100, "GALLI\nEXPLORER", {
+      .text(cx, cy - 28, "GALLI\nEXPLORER", {
         ...textConfig,
-        color: "#acb64b",
+        color: colors.accent,
       })
       .setOrigin(0.5);
 
@@ -44,12 +45,12 @@ export default class MenuScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        cy + 30,
+        cy + 85,
         "NAVIGATE THROUGH BHAKTAPUR'S CHAOTIC NARROW GALLIS\nAND HELP BAUCHA REACH HOME SAFELY.",
         {
           fontFamily: "EarlyGameBoy",
           fontSize: "17px",
-          color: "#1b2e24",
+          color: colors.textDark,
           align: "center",
           lineSpacing: 7,
         },
@@ -60,39 +61,50 @@ export default class MenuScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        cy + 100,
+        cy + 155,
         "USE ARROW KEYS OR A / D TO MOVE.\n ON PHONES: USE THE CORNER BUTTONS",
         {
           fontFamily: "EarlyGameBoy",
           fontSize: "15px",
-          color: "#517f30",
+          color: colors.controls,
           align: "center",
           lineSpacing: 7,
         },
       )
       .setOrigin(0.5);
 
-    // START TEXT
-    const startText = this.add
-      .text(cx, cy + 175, "CLICK ANYWHERE TO START", {
+    const playButton = this.add.rectangle(
+      cx + 6,
+      cy + 232,
+      210,
+      58,
+      colors.deepNum,
+    );
+    const playBody = this.add.rectangle(cx, cy + 226, 210, 58, colors.darkNum);
+    const playInner = this.add.rectangle(cx, cy + 226, 202, 50, colors.deepNum);
+    const playText = this.add
+      .text(cx, cy + 226, "PLAY >>> ", {
         fontFamily: "EarlyGameBoy",
-        fontSize: "16px",
-        color: "#517f30",
+        fontSize: "18px",
+        color: colors.light,
         align: "center",
       })
       .setOrigin(0.5);
-    // Blinking animation
-    this.tweens.add({
-      targets: startText,
-      alpha: 0,
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-    });
 
-    this.input.once("pointerdown", () => {
-      this.scene.start("Level1Scene");
-      this.scene.launch("UIScene");
+    playBody.setInteractive({ useHandCursor: true });
+    playBody.on("pointerdown", () => {
+      this.scene.start("LevelIntroScene", { level: 1 });
+    });
+    playBody.on("pointerover", () => playBody.setScale(1.04));
+    playBody.on("pointerout", () => playBody.setScale(1));
+
+    playButton.setDepth(1);
+    playBody.setDepth(2);
+    playInner.setDepth(3);
+    playText.setDepth(4);
+
+    this.input.keyboard?.once("keydown-ENTER", () => {
+      this.scene.start("LevelIntroScene", { level: 1 });
     });
   }
 }

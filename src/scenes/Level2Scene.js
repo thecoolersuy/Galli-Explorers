@@ -1,22 +1,24 @@
 import Phaser from "phaser";
 import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
+import colors from "../styles/colors.js";
+import audio from "../styles/audio.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
-const WALL_COLOR = 0xacb64b;
+const WALL_COLOR = colors.accentNum;
 const BORDER_THICKNESS = 8;
-const BORDER_COLOR = 0x75953a;
-const VISITED_COLOR = 0x48bf6d;
-const GOAL_COLOR = 0xf8fdbb;
+const BORDER_COLOR = 0x7a5a34;
+const VISITED_COLOR = 0x8f6b3a;
+const GOAL_COLOR = colors.lightNum;
 const PLAYER_COLOR = 0xff6b6b;
-const OBSTACLE_FILL = 0xc48a3a;
-const OBSTACLE_DARK = 0x5c3819;
-const OBSTACLE_ACCENT = 0x2f5d2f;
+const OBSTACLE_FILL = colors.obstacleFillNum;
+const OBSTACLE_DARK = colors.obstacleDarkNum;
+const OBSTACLE_ACCENT = colors.obstacleAccentNum;
 const OBSTACLE_MOVE_MS = 380;
-const DARKNESS_COLOR = "rgba(3, 4, 8, 1)";
+const DARKNESS_COLOR = "rgba(3, 4, 8, 0.90)";
 const TORCH_RADIUS = 130;
-const PIXEL_BLOCK = 16; // size of each checkerboard cell in the torch
+const PIXEL_BLOCK = 16; // size of each pixel block in the torch
 const MAZE_DEPTH = 0;
 const WALL_DEPTH = 10;
 const GOAL_DEPTH = 15;
@@ -35,12 +37,28 @@ export default class Level2Scene extends Phaser.Scene {
   preload() {
     this.load.image(
       "rath",
-      new URL("../assets/img/rath.png", import.meta.url).href,
+      new URL("../assets/img/rathbrown.png", import.meta.url).href,
     );
 
     this.load.audio(
       "rath-dhim",
       new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
+    );
+
+    this.load.audio(
+      "footsteps-wood",
+      new URL("../assets/audio/footstep_wood_000.ogg", import.meta.url).href,
+    );
+
+    this.load.audio(
+      "impact-plate",
+      new URL("../assets/audio/impactPlate_medium_002.ogg", import.meta.url)
+        .href,
+    );
+
+    this.load.audio(
+      "level-completed",
+      new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
@@ -50,7 +68,7 @@ export default class Level2Scene extends Phaser.Scene {
       {
         frameWidth: 230,
         frameHeight: 430,
-      }
+      },
     );
   }
 
@@ -75,6 +93,19 @@ export default class Level2Scene extends Phaser.Scene {
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
       volume: 0,
+    });
+    this.currentRathVolume = 0;
+
+    this.footstepSound = this.sound.add("footsteps-wood", {
+      volume: 2,
+    });
+
+    this.impactSound = this.sound.add("impact-plate", {
+      volume: 0.5,
+    });
+
+    this.levelCompletedSound = this.sound.add("level-completed", {
+      volume: 1,
     });
 
     this.rathSound.play();
@@ -289,7 +320,7 @@ export default class Level2Scene extends Phaser.Scene {
         {
           fontFamily: "EarlyGameBoy",
           fontSize: "22px",
-          color: "#1b2e24",
+          color: colors.textDark,
         },
       )
       .setOrigin(0.5)
@@ -359,7 +390,7 @@ export default class Level2Scene extends Phaser.Scene {
       this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
       this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
       "player-girl",
-      0
+      0,
     );
     this.playerSprite.setScale(scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
@@ -373,7 +404,7 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.playerSprite.setPosition(
       offsetX + playerPos.c * S + S / 2,
-      offsetY + playerPos.r * S + S / 2
+      offsetY + playerPos.r * S + S / 2,
     );
   }
 
@@ -422,11 +453,15 @@ export default class Level2Scene extends Phaser.Scene {
     if (!this.darknessTexture) return;
 
     const ctx = this.darknessTexture.context;
-    const { x, y } = this._getPlayerCenter();
+    let { x, y } = this._getPlayerCenter();
     const B = PIXEL_BLOCK;
     const R = TORCH_RADIUS;
     const W = this.scale.width;
     const H = this.scale.height;
+
+    // Snap circle center to block grid so border stays locked in place
+    x = Math.round(x / B) * B;
+    y = Math.round(y / B) * B;
 
     // Fill entire canvas with darkness
     ctx.clearRect(0, 0, W, H);
@@ -436,17 +471,7 @@ export default class Level2Scene extends Phaser.Scene {
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
 
-    // Step 1: punch out a clean solid circle for the inner visible area
-    ctx.fillStyle = "rgba(0, 0, 0, 1)";
-    ctx.beginPath();
-    ctx.arc(x, y, R, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    // Step 2: paint darkness back over the edge using pixel blocks
-    // This creates the hard chunky pixelated border look
-    const edgeStart = R * 0.75;
+    // Build pixelated circular light area from square blocks
     const startCol = Math.floor((x - R) / B);
     const endCol = Math.ceil((x + R) / B);
     const startRow = Math.floor((y - R) / B);
@@ -458,24 +483,14 @@ export default class Level2Scene extends Phaser.Scene {
         const by = row * B + B / 2;
         const dist = Math.sqrt((bx - x) * (bx - x) + (by - y) * (by - y));
 
-        // Only affect the edge ring
-        if (dist <= edgeStart || dist > R + B) continue;
+        if (dist > R) continue;
 
-        // How deep into the edge ring (0 = inner edge, 1 = outer edge)
-        const t = (dist - edgeStart) / (R - edgeStart);
-
-        // Checkerboard: one set of blocks fades in earlier than the other
-        const isLight = (row + col) % 2 === 0;
-        const threshold = isLight ? 0.45 : 0.65;
-
-        // Block is dark (darkness painted back) if past its threshold
-        if (t < threshold) continue;
-
-        const alpha = Math.min(1, (t - threshold) / (1 - threshold));
-        ctx.fillStyle = `rgba(3, 4, 8, ${alpha})`;
+        ctx.fillStyle = "rgba(0, 0, 0, 1)";
         ctx.fillRect(col * B, row * B, B, B);
       }
     }
+
+    ctx.restore();
 
     this.darknessTexture.refresh();
   }
@@ -503,15 +518,19 @@ export default class Level2Scene extends Phaser.Scene {
       if (dist < minDist) minDist = dist;
     }
 
-    const MAX_HEAR_DIST = 6;
+    const { maxHearDist, maxVolume, smoothing } = audio.rath;
 
-    if (minDist > MAX_HEAR_DIST) {
-      this.rathSound.setVolume(0);
-      return;
-    }
+    const proximity = Phaser.Math.Clamp(1 - minDist / maxHearDist, 0, 1);
+    const easedProximity = proximity * proximity * (3 - 2 * proximity);
+    const targetVolume = easedProximity * maxVolume;
 
-    const volume = Phaser.Math.Clamp(1 - minDist / MAX_HEAR_DIST, 0, 1);
-    this.rathSound.setVolume(volume);
+    this.currentRathVolume = Phaser.Math.Linear(
+      this.currentRathVolume,
+      targetVolume,
+      smoothing,
+    );
+
+    this.rathSound.setVolume(this.currentRathVolume);
   }
 
   update(time) {
@@ -558,20 +577,34 @@ export default class Level2Scene extends Phaser.Scene {
 
     let nr = r;
     let nc = c;
+    let hitWall = false;
 
     // Determine direction and update flip state
-    if ((key === "ArrowUp" || key === "w") && !cell.walls[0]) {
-      nr--;
-    } else if ((key === "ArrowRight" || key === "d") && !cell.walls[1]) {
-      nc++;
-      this.lastDirection = 1; // Face right
-      if (this.playerSprite) this.playerSprite.setFlipX(false);
-    } else if ((key === "ArrowDown" || key === "s") && !cell.walls[2]) {
-      nr++;
-    } else if ((key === "ArrowLeft" || key === "a") && !cell.walls[3]) {
-      nc--;
-      this.lastDirection = -1; // Face left
-      if (this.playerSprite) this.playerSprite.setFlipX(true);
+    if (key === "ArrowUp" || key === "w") {
+      if (cell.walls[0]) hitWall = true;
+      else nr--;
+    } else if (key === "ArrowRight" || key === "d") {
+      if (cell.walls[1]) hitWall = true;
+      else {
+        nc++;
+        this.lastDirection = 1; // Face right
+        if (this.playerSprite) this.playerSprite.setFlipX(false);
+      }
+    } else if (key === "ArrowDown" || key === "s") {
+      if (cell.walls[2]) hitWall = true;
+      else nr++;
+    } else if (key === "ArrowLeft" || key === "a") {
+      if (cell.walls[3]) hitWall = true;
+      else {
+        nc--;
+        this.lastDirection = -1; // Face left
+        if (this.playerSprite) this.playerSprite.setFlipX(true);
+      }
+    }
+
+    if (hitWall) {
+      this._playImpactSound();
+      return;
     }
 
     if (this._isObstacleAt(nr, nc)) {
@@ -582,11 +615,12 @@ export default class Level2Scene extends Phaser.Scene {
     if (nr !== r || nc !== c) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
-      
+      this._playFootstepSound();
+
       // Start walking animation
       this.isPlayerMoving = true;
       this.playerSprite.play("player-walk");
-      
+
       // Stop animation and return to standing frame (frame 0) after 300ms
       if (this.playerMoveTimer) {
         this.playerMoveTimer.remove(false);
@@ -596,10 +630,24 @@ export default class Level2Scene extends Phaser.Scene {
         this.playerSprite.stop();
         this.playerSprite.setFrame(0);
       });
-      
+
       this._updateFlashlight();
       this._checkWin();
     }
+  }
+
+  _playFootstepSound() {
+    if (!this.footstepSound) return;
+
+    this.footstepSound.stop();
+    this.footstepSound.play();
+  }
+
+  _playImpactSound() {
+    if (!this.impactSound) return;
+
+    this.impactSound.stop();
+    this.impactSound.play();
   }
 
   _isObstacleAt(r, c) {
@@ -616,8 +664,8 @@ export default class Level2Scene extends Phaser.Scene {
     const buttonStyle = {
       fontFamily: "EarlyGameBoy",
       fontSize: "20px",
-      color: "#f8fdbb",
-      backgroundColor: "#013236",
+      color: colors.light,
+      backgroundColor: colors.deep,
       padding: { x: 16, y: 10 },
     };
 
@@ -668,8 +716,8 @@ export default class Level2Scene extends Phaser.Scene {
         {
           fontFamily: "EarlyGameBoy",
           fontSize: "28px",
-          color: "#f8fdbb",
-          backgroundColor: "#5d4020",
+          color: colors.light,
+          backgroundColor: colors.panel,
           padding: { x: 18, y: 10 },
         },
       )
@@ -688,6 +736,10 @@ export default class Level2Scene extends Phaser.Scene {
         this.rathSound.stop();
       }
 
+      if (this.levelCompletedSound) {
+        this.levelCompletedSound.play();
+      }
+
       this.input.keyboard.removeAllListeners();
       this.add
         .text(
@@ -697,15 +749,17 @@ export default class Level2Scene extends Phaser.Scene {
           {
             fontFamily: "EarlyGameBoy",
             fontSize: "36px",
-            color: "#f8fdbb",
-            backgroundColor: "#013236",
+            color: colors.light,
+            backgroundColor: colors.deep,
             padding: { x: 20, y: 10 },
           },
         )
         .setOrigin(0.5)
         .setDepth(MESSAGE_DEPTH);
 
-      this._showVictoryButtons();
+      this.time.delayedCall(2200, () => {
+        this._showVictoryButtons();
+      });
     }
   }
 
@@ -716,8 +770,8 @@ export default class Level2Scene extends Phaser.Scene {
     const buttonStyle = {
       fontFamily: "EarlyGameBoy",
       fontSize: "20px",
-      color: "#f8fdbb",
-      backgroundColor: "#013236",
+      color: colors.light,
+      backgroundColor: colors.deep,
       padding: { x: 16, y: 10 },
     };
 
