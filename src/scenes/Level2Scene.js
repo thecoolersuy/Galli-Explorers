@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
+import audio from "../styles/audio.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -36,7 +37,7 @@ export default class Level2Scene extends Phaser.Scene {
   preload() {
     this.load.image(
       "rath",
-      new URL("../assets/img/rath2.png", import.meta.url).href,
+      new URL("../assets/img/rathbrown.png", import.meta.url).href,
     );
 
     this.load.audio(
@@ -53,6 +54,11 @@ export default class Level2Scene extends Phaser.Scene {
       "impact-plate",
       new URL("../assets/audio/impactPlate_medium_002.ogg", import.meta.url)
         .href,
+    );
+
+    this.load.audio(
+      "level-completed",
+      new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
@@ -88,6 +94,7 @@ export default class Level2Scene extends Phaser.Scene {
       loop: true,
       volume: 0,
     });
+    this.currentRathVolume = 0;
 
     this.footstepSound = this.sound.add("footsteps-wood", {
       volume: 2,
@@ -95,6 +102,10 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.impactSound = this.sound.add("impact-plate", {
       volume: 0.5,
+    });
+
+    this.levelCompletedSound = this.sound.add("level-completed", {
+      volume: 1,
     });
 
     this.rathSound.play();
@@ -507,15 +518,19 @@ export default class Level2Scene extends Phaser.Scene {
       if (dist < minDist) minDist = dist;
     }
 
-    const MAX_HEAR_DIST = 6;
+    const { maxHearDist, maxVolume, smoothing } = audio.rath;
 
-    if (minDist > MAX_HEAR_DIST) {
-      this.rathSound.setVolume(0);
-      return;
-    }
+    const proximity = Phaser.Math.Clamp(1 - minDist / maxHearDist, 0, 1);
+    const easedProximity = proximity * proximity * (3 - 2 * proximity);
+    const targetVolume = easedProximity * maxVolume;
 
-    const volume = Phaser.Math.Clamp(1 - minDist / MAX_HEAR_DIST, 0, 1);
-    this.rathSound.setVolume(volume);
+    this.currentRathVolume = Phaser.Math.Linear(
+      this.currentRathVolume,
+      targetVolume,
+      smoothing,
+    );
+
+    this.rathSound.setVolume(this.currentRathVolume);
   }
 
   update(time) {
@@ -721,6 +736,10 @@ export default class Level2Scene extends Phaser.Scene {
         this.rathSound.stop();
       }
 
+      if (this.levelCompletedSound) {
+        this.levelCompletedSound.play();
+      }
+
       this.input.keyboard.removeAllListeners();
       this.add
         .text(
@@ -738,7 +757,9 @@ export default class Level2Scene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(MESSAGE_DEPTH);
 
-      this._showVictoryButtons();
+      this.time.delayedCall(2200, () => {
+        this._showVictoryButtons();
+      });
     }
   }
 

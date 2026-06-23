@@ -73,27 +73,38 @@ export default class MenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    // START TEXT
-    const startText = this.add
-      .text(cx, cy + 225, "CLICK ANYWHERE TO START", {
+    const playButton = this.add.rectangle(
+      cx + 6,
+      cy + 232,
+      210,
+      58,
+      colors.deepNum,
+    );
+    const playBody = this.add.rectangle(cx, cy + 226, 210, 58, colors.darkNum);
+    const playInner = this.add.rectangle(cx, cy + 226, 202, 50, colors.deepNum);
+    const playText = this.add
+      .text(cx, cy + 226, "PLAY >>> ", {
         fontFamily: "EarlyGameBoy",
-        fontSize: "16px",
-        color: colors.controls,
+        fontSize: "18px",
+        color: colors.light,
         align: "center",
       })
       .setOrigin(0.5);
-    // Blinking animation
-    this.tweens.add({
-      targets: startText,
-      alpha: 0,
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-    });
 
-    this.input.once("pointerdown", () => {
-      this.scene.start("Level1Scene");
-      this.scene.launch("UIScene");
+    playBody.setInteractive({ useHandCursor: true });
+    playBody.on("pointerdown", () => {
+      this.scene.start("LevelIntroScene", { level: 1 });
+    });
+    playBody.on("pointerover", () => playBody.setScale(1.04));
+    playBody.on("pointerout", () => playBody.setScale(1));
+
+    playButton.setDepth(1);
+    playBody.setDepth(2);
+    playInner.setDepth(3);
+    playText.setDepth(4);
+
+    this.input.keyboard?.once("keydown-ENTER", () => {
+      this.scene.start("LevelIntroScene", { level: 1 });
     });
   }
 }
