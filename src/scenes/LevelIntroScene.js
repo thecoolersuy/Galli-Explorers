@@ -4,16 +4,16 @@ import colors from "../styles/colors.js";
 const LEVEL_INTROS = {
   1: {
     title: "LEVEL 1",
-    subtitle: "THE GALLI RUN",
+    subtitle: "JATRA AYOOO",
     description:
       "Guide Baucha through the narrow gallis and reach home safely before the crowd closes in.",
     nextScene: "Level1Scene",
   },
   2: {
     title: "LEVEL 2",
-    subtitle: "THE PROCESSION",
+    subtitle: "LOADSHEDDING VAYO FERI",
     description:
-      "Capture the sea of people drenched in vermillion, where deities drift in palanquins beneath colorful parasols, and the air hums with dhime and bhusya echoing through Balkumari, Siddhi Kali, Bishnubir and Layaku.",
+      "The streetlamps flicker and buzz. You just stepped into the quiet, winding alleyways of Thimi. Loadshedding has struck. Pitch darkness. \n \n You must now guide Maicha through the narrow and confusing gallis. Use only the faint glow of her diyo (oil lamp) to navigate twists and turns without bumping into crowded jatras.",
     nextScene: "Level2Scene",
   },
 };
