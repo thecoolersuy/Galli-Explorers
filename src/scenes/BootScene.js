@@ -6,8 +6,8 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load images
-    this.load.image("lakhey", "src/assets/img/lakhey(final).png");
+    // Load images (use rath.png for the menu icon instead of lakhey)
+    this.load.image("lakhey", "src/assets/img/rath2.png");
 
     // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
     this.load.spritesheet("player-girl", "src/assets/img/1.png", {

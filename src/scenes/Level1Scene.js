@@ -1,18 +1,19 @@
 import Phaser from "phaser";
 import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
+import colors from "../styles/colors.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
-const WALL_COLOR = 0xacb64b;
+const WALL_COLOR = colors.accentNum;
 const BORDER_THICKNESS = 8;
-const BORDER_COLOR = 0x75953a;
-const VISITED_COLOR = 0x48bf6d;
-const GOAL_COLOR = 0xf8fdbb;
+const BORDER_COLOR = 0x7a5a34;
+const VISITED_COLOR = 0x8f6b3a;
+const GOAL_COLOR = colors.lightNum;
 const PLAYER_COLOR = 0xff6b6b;
-const OBSTACLE_FILL = 0xc48a3a;
-const OBSTACLE_DARK = 0x5c3819;
-const OBSTACLE_ACCENT = 0x2f5d2f;
+const OBSTACLE_FILL = colors.obstacleFillNum;
+const OBSTACLE_DARK = colors.obstacleDarkNum;
+const OBSTACLE_ACCENT = colors.obstacleAccentNum;
 const OBSTACLE_MOVE_MS = 380;
 
 export default class Level1Scene extends Phaser.Scene {
@@ -23,7 +24,7 @@ export default class Level1Scene extends Phaser.Scene {
   preload() {
     this.load.image(
       "rath",
-      new URL("../assets/img/rath.png", import.meta.url).href,
+      new URL("../assets/img/rath2.png", import.meta.url).href,
     );
 
     this.load.audio(
@@ -293,7 +294,7 @@ export default class Level1Scene extends Phaser.Scene {
         {
           fontFamily: "EarlyGameBoy",
           fontSize: "22px",
-          color: "#1b2e24",
+          color: colors.textDark,
         },
       )
       .setOrigin(0.5);
@@ -551,8 +552,8 @@ export default class Level1Scene extends Phaser.Scene {
     const buttonStyle = {
       fontFamily: "EarlyGameBoy",
       fontSize: "20px",
-      color: "#f8fdbb",
-      backgroundColor: "#013236",
+      color: colors.light,
+      backgroundColor: colors.deep,
       padding: { x: 16, y: 10 },
     };
 
@@ -603,8 +604,8 @@ export default class Level1Scene extends Phaser.Scene {
         {
           fontFamily: "EarlyGameBoy",
           fontSize: "28px",
-          color: "#f8fdbb",
-          backgroundColor: "#5d4020",
+          color: colors.light,
+          backgroundColor: colors.panel,
           padding: { x: 18, y: 10 },
         },
       )
@@ -632,8 +633,8 @@ export default class Level1Scene extends Phaser.Scene {
           {
             fontFamily: "EarlyGameBoy",
             fontSize: "36px",
-            color: "#f8fdbb",
-            backgroundColor: "#013236",
+            color: colors.light,
+            backgroundColor: colors.deep,
             padding: { x: 20, y: 10 },
           },
         )
