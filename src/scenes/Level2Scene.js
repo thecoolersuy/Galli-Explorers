@@ -775,18 +775,18 @@ export default class Level2Scene extends Phaser.Scene {
       padding: { x: 16, y: 10 },
     };
 
-    const menuBtn = this.add
-      .text(centerX, centerY, "BACK TO MENU", buttonStyle)
+    const nextBtn = this.add
+      .text(centerX, centerY, "NEXT LEVEL", buttonStyle)
       .setOrigin(0.5)
       .setDepth(MESSAGE_DEPTH)
       .setInteractive({ useHandCursor: true });
 
-    menuBtn.on("pointerdown", () => {
+    nextBtn.on("pointerdown", () => {
       this.scene.stop("UIScene");
-      this.scene.start("MenuScene");
+      this.scene.start("LevelIntroScene", { level: 3 });
     });
 
-    menuBtn.on("pointerover", () => menuBtn.setScale(1.1));
-    menuBtn.on("pointerout", () => menuBtn.setScale(1));
+    nextBtn.on("pointerover", () => nextBtn.setScale(1.1));
+    nextBtn.on("pointerout", () => nextBtn.setScale(1));
   }
 }

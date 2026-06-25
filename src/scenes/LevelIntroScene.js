@@ -16,6 +16,28 @@ const LEVEL_INTROS = {
       "The streetlamps flicker and buzz. You just stepped into the quiet, winding alleyways of Thimi. Loadshedding has struck. Pitch darkness. \n \n You must now guide Maicha through the narrow and confusing gallis. Use only the faint glow of her diyo (oil lamp) to navigate twists and turns without bumping into crowded jatras.",
     nextScene: "Level2Scene",
   },
+  3: {
+    title: "LEVEL 3",
+    subtitle: "LAKHEY MAZE CHASE",
+    description:
+      "A fierce Lakhey mask roams the gallis. Watch its path, keep your distance, and reach ghar without letting it touch you.",
+    nextScene: "Level3Scene",
+  },
+  4: {
+    title: "LEVEL 4",
+    subtitle: "LOCKED GATE",
+    description:
+      "The way home is blocked. Find the hidden key, return to the locked gate, and open the path to ghar.",
+    nextScene: "Level4Scene",
+  },
+  5: {
+    title: "LEVEL 5",
+    subtitle: "THREE KEYS",
+    description:
+      "One gate needs three keys. Explore the maze, collect every key, and unlock the final route home.",
+    nextScene: "Level5Scene",
+    totalKeys: 3,
+  },
 };
 
 export default class LevelIntroScene extends Phaser.Scene {
@@ -24,7 +46,7 @@ export default class LevelIntroScene extends Phaser.Scene {
   }
 
   create(data = {}) {
-    const levelNum = data.level === 2 ? 2 : 1;
+    const levelNum = LEVEL_INTROS[data.level] ? data.level : 1;
     const intro = LEVEL_INTROS[levelNum];
 
     this.scene.stop("UIScene");
@@ -112,7 +134,10 @@ export default class LevelIntroScene extends Phaser.Scene {
       label: "PLAY >>>",
       onClick: () => {
         this.scene.start(intro.nextScene);
-        this.scene.launch("UIScene", { level: levelNum });
+        this.scene.launch("UIScene", {
+          level: levelNum,
+          totalKeys: intro.totalKeys || 0,
+        });
       },
     });
 
