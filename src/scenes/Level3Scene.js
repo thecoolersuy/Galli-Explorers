@@ -18,6 +18,11 @@ export default class Level3Scene extends BaseMazeScene {
   preload() {
     super.preload();
 
+
+    this.load.image(
+      "lakheypic",
+      new URL("../assets/img/lakhey.png", import.meta.url).href,
+    );
     this.load.image(
       "rath",
       new URL("../assets/img/rathbrown.png", import.meta.url).href,
@@ -31,7 +36,11 @@ export default class Level3Scene extends BaseMazeScene {
 
   _configureLevel() {
     this.rathRoutes = this._configureRathRoutes();
-    this.ballRoutes = this._configureBallRoutes();
+    this.redBallStart = {
+      r: 1,
+      c: 1,
+    };
+    this._openRathRing(this.redBallStart.r, this.redBallStart.c);
   }
 
   _setupLevelObjects() {
@@ -50,16 +59,18 @@ export default class Level3Scene extends BaseMazeScene {
       rath.currentCell = rath.route[0];
     }
 
-    // Setup red balls
-    this.redBalls = this.ballRoutes.map((route, index) => ({
-      route,
-      phase: index * 3,
-      moveMs: BALL_MOVE_MS + index * 60,
-      currentCell: route[0],
+    // Setup single red ball (Lakhey)
+    this.redBalls = [{
+      currentCell: { ...this.redBallStart },
       sprite: null,
-    }));
+    }];
 
     this._createBallSprites();
+
+    // Initialize chase state variables
+    this.playerHasMoved = false;
+    this.isChasing = false;
+    this.lastChaseMoveTime = 0;
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -71,45 +82,11 @@ export default class Level3Scene extends BaseMazeScene {
   }
 
   _createBallSprites() {
-    const textureKey = "red-ball";
-
-    // Create red ball texture if it doesn't exist
-    if (!this.textures.exists(textureKey)) {
-      const canvas = this.textures.createCanvas(
-        textureKey,
-        Math.round(this.CELL_SIZE * 1.2),
-        Math.round(this.CELL_SIZE * 1.2),
-      );
-
-      const ctx = canvas.context;
-      const size = Math.round(this.CELL_SIZE * 1.2);
-      const radius = size / 2;
-
-      // Draw red ball with gradient
-      const gradient = ctx.createRadialGradient(radius * 0.4, radius * 0.4, 0, radius, radius, radius);
-      gradient.addColorStop(0, "#ff4444");
-      gradient.addColorStop(0.7, "#cc0000");
-      gradient.addColorStop(1, "#880000");
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(radius, radius, radius - 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Add shine effect
-      ctx.fillStyle = "rgba(255, 200, 200, 0.4)";
-      ctx.beginPath();
-      ctx.arc(radius * 0.5, radius * 0.5, radius * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      canvas.refresh();
-    }
-
-    // Create sprites for each red ball
     for (const ball of this.redBalls) {
-      ball.sprite = this.add.image(0, 0, textureKey);
+      ball.sprite = this.add.image(0, 0, "lakheypic");
       ball.sprite.setOrigin(0.5);
       ball.sprite.setDepth(25);
+      ball.sprite.setScale(0.15);
     }
   }
 
@@ -124,7 +101,7 @@ export default class Level3Scene extends BaseMazeScene {
     // Update raths and track their positions
     for (const rath of this.rathObstacles) {
       rath.update(time);
-      
+
       // Track current cell position for each rath based on their route
       // Calculate which step in the route the rath should be at
       const routeLength = rath.route ? rath.route.length : 0;
@@ -135,11 +112,22 @@ export default class Level3Scene extends BaseMazeScene {
       }
     }
 
-    // Update red balls
-    for (const ball of this.redBalls) {
-      const step =
-        Math.floor(time / ball.moveMs + ball.phase) % ball.route.length;
-      ball.currentCell = ball.route[step];
+    // Update chasing red ball (Lakhey)
+    if (this.isChasing) {
+      if (!this.lastChaseMoveTime) {
+        this.lastChaseMoveTime = time;
+      }
+
+      // Speed: medium (every 380ms)
+      if (time - this.lastChaseMoveTime >= 250) {
+        this.lastChaseMoveTime = time;
+
+        const ball = this.redBalls[0];
+        const path = this._findMazePath(ball.currentCell, this.playerPos);
+        if (path && path.length > 1) {
+          ball.currentCell = path[1];
+        }
+      }
     }
 
     this._drawBalls();
@@ -151,6 +139,16 @@ export default class Level3Scene extends BaseMazeScene {
 
     // Update sound based on proximity
     this._updateRathSound();
+  }
+
+  _afterPlayerMove(fromCell, toCell) {
+    super._afterPlayerMove(fromCell, toCell);
+    if (!this.playerHasMoved) {
+      this.playerHasMoved = true;
+      this.time.delayedCall(5000, () => {
+        this.isChasing = true;
+      });
+    }
   }
 
   _updateRathSound() {
@@ -242,34 +240,6 @@ export default class Level3Scene extends BaseMazeScene {
     return routes;
   }
 
-  _configureBallRoutes() {
-    const anchors = [
-      { r: Math.floor(this.nrows * 0.35), c: Math.floor(this.ncols * 0.50) },
-      { r: Math.floor(this.nrows * 0.75), c: Math.floor(this.ncols * 0.45) },
-    ];
-
-    const routes = [];
-
-    for (const anchor of anchors) {
-      if (
-        anchor.r < 2 ||
-        anchor.c < 2 ||
-        anchor.r >= this.nrows - 2 ||
-        anchor.c >= this.ncols - 2
-      ) {
-        continue;
-      }
-
-      const route = this._buildBallRoute(anchor.r, anchor.c);
-      if (route.length < 4) continue;
-
-      this._openRathRing(anchor.r, anchor.c);
-      routes.push(route);
-    }
-
-    return routes;
-  }
-
   _buildRathRoute(r, c) {
     return [
       { r: r - 1, c: c - 1 },
@@ -280,36 +250,6 @@ export default class Level3Scene extends BaseMazeScene {
       { r: r + 1, c },
       { r: r + 1, c: c - 1 },
       { r, c: c - 1 },
-    ].filter(
-      ({ r: row, c: col }) =>
-        row > 0 &&
-        col > 0 &&
-        row < this.nrows - 1 &&
-        col < this.ncols - 1 &&
-        !(row === 0 && col === 0) &&
-        !(row === this.nrows - 1 && col === this.ncols - 1),
-    );
-  }
-
-  _buildBallRoute(r, c) {
-    // Red balls follow a slightly different pattern - larger circular path
-    return [
-      { r: r - 2, c: c - 2 },
-      { r: r - 2, c: c - 1 },
-      { r: r - 2, c },
-      { r: r - 2, c: c + 1 },
-      { r: r - 2, c: c + 2 },
-      { r: r - 1, c: c + 2 },
-      { r, c: c + 2 },
-      { r: r + 1, c: c + 2 },
-      { r: r + 2, c: c + 2 },
-      { r: r + 2, c: c + 1 },
-      { r: r + 2, c },
-      { r: r + 2, c: c - 1 },
-      { r: r + 2, c: c - 2 },
-      { r: r + 1, c: c - 2 },
-      { r, c: c - 2 },
-      { r: r - 1, c: c - 2 },
     ].filter(
       ({ r: row, c: col }) =>
         row > 0 &&

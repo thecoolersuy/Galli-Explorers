@@ -93,7 +93,7 @@ export default class MenuScene extends Phaser.Scene {
 
     playBody.setInteractive({ useHandCursor: true });
     playBody.on("pointerdown", () => {
-      this.scene.start("LevelIntroScene", { level: 1 });
+      this.scene.start("LevelIntroScene", { level: 3 });
     });
     playBody.on("pointerover", () => playBody.setScale(1.04));
     playBody.on("pointerout", () => playBody.setScale(1));
@@ -104,7 +104,7 @@ export default class MenuScene extends Phaser.Scene {
     playText.setDepth(4);
 
     this.input.keyboard?.once("keydown-ENTER", () => {
-      this.scene.start("LevelIntroScene", { level: 1 });
+      this.scene.start("LevelIntroScene", { level: 3 });
     });
   }
 }

@@ -33,6 +33,8 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   preload() {
+
+
     this.load.audio(
       "footsteps-wood",
       new URL("../assets/audio/footstep_wood_000.ogg", import.meta.url).href,
@@ -86,17 +88,17 @@ export default class BaseMazeScene extends Phaser.Scene {
     this._updateLevel(time, delta);
   }
 
-  _configureLevel() {}
+  _configureLevel() { }
 
-  _setupLevelObjects() {}
+  _setupLevelObjects() { }
 
-  _updateLevel() {}
+  _updateLevel() { }
 
   _canEnterCell() {
     return true;
   }
 
-  _afterPlayerMove() {}
+  _afterPlayerMove() { }
 
   _isHazardAt() {
     return false;
@@ -508,7 +510,7 @@ export default class BaseMazeScene extends Phaser.Scene {
     return button;
   }
 
-  _stopLevelAudio() {}
+  _stopLevelAudio() { }
 
   _cellCenter(r, c) {
     return {
