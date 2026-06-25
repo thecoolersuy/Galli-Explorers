@@ -3,6 +3,7 @@ import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
 import audio from "../styles/audio.js";
+import ProgressManager from "../logic/ProgressManager.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -638,6 +639,8 @@ export default class Level1Scene extends Phaser.Scene {
       if (this.rathSound) {
         this.rathSound.stop();
       }
+
+      ProgressManager.completeLevel(1);
 
       if (this.levelCompletedSound) {
         this.levelCompletedSound.play();
