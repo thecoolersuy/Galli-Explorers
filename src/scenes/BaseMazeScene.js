@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
+import ProgressManager from "../logic/ProgressManager.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -432,6 +433,8 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.levelComplete = true;
     this._stopLevelAudio();
+
+    ProgressManager.completeLevel(this.levelNumber);
 
     if (this.levelCompletedSound) {
       this.levelCompletedSound.play();
