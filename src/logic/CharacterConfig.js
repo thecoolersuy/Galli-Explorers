@@ -29,7 +29,7 @@ export const CHARACTERS = [
     previewOffsetY: 52,
     sourceWidth: 230,
     sourceHeight: 724,
-    bodyHeight: 240,
+    bodyHeight: 274,
     originX: 0.5,
     originY: 0.675,
     unlockCost: 200,
