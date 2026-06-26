@@ -62,14 +62,10 @@ export default class Level2Scene extends Phaser.Scene {
       new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
-    // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
-    this.load.spritesheet(
-      "player-girl",
+    // Load player sheet as plain image, frames sliced manually in _registerPlayerFrames
+    this.load.image(
+      "player-girl-sheet",
       new URL("../assets/img/1.png", import.meta.url).href,
-      {
-        frameWidth: 230,
-        frameHeight: 430,
-      },
     );
   }
 
@@ -86,6 +82,7 @@ export default class Level2Scene extends Phaser.Scene {
     this._buildMaze();
     this._placeObstacles();
     this._drawMaze();
+    this._registerPlayerFrames();
     this._createPlayerAnimation();
     this._setupPlayer();
     this._setupFlashlight();
@@ -377,15 +374,27 @@ export default class Level2Scene extends Phaser.Scene {
     }
   }
 
+  // Manually slice the 2576x400 sheet into 12 frames of 214x400
+  _registerPlayerFrames() {
+    const FRAME_W = 214;
+    const FRAME_H = 400;
+    const NUM_FRAMES = 12;
+    if (this.textures.exists("player-girl")) return;
+    const src = this.textures.get("player-girl-sheet").getSourceImage();
+    const tex = this.textures.create("player-girl", src, src.width, src.height);
+    for (let i = 0; i < NUM_FRAMES; i++) {
+      tex.add(i, 0, i * FRAME_W, 0, FRAME_W, FRAME_H);
+    }
+    tex.add("__BASE", 0, 0, 0, src.width, src.height);
+  }
+
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
     this.lastDirection = 1; // 1 = right, -1 = left
     this.isPlayerMoving = false;
 
-    // Create sprite: scale UP to prominently fill grid cell
-    // Original height: 430px, target: ~67px (1.5x cell size)
-    const PLAYER_SCALE = 1.5; // 1.5x the cell size
-    const scale = (CELL_SIZE * PLAYER_SCALE) / 430;
+    const PLAYER_SCALE = 1.5;
+    const scale = (CELL_SIZE * PLAYER_SCALE) / 400; // frame height = 400px
 
     this.playerSprite = this.add.sprite(
       this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
@@ -395,8 +404,7 @@ export default class Level2Scene extends Phaser.Scene {
     );
     this.playerSprite.setScale(scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
-    // Start on standing frame (frame 0)
-    this.playerSprite.setFrame(0);
+    this._setPlayerIdle();
   }
 
   _drawPlayer() {
@@ -410,17 +418,31 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _createPlayerAnimation() {
-    // Create 12-frame walking animation at 10 FPS (100ms per frame)
     if (!this.anims.exists("player-walk")) {
       this.anims.create({
         key: "player-walk",
         frames: this.anims.generateFrameNumbers("player-girl", {
-          start: 0,
+          start: 1,
           end: 11,
         }),
         frameRate: 10,
-        repeat: -1, // Loop indefinitely
+        repeat: -1,
       });
+    }
+  }
+
+  _setPlayerIdle() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.isPlaying) {
+      this.playerSprite.anims.stop();
+    }
+    this.playerSprite.setFrame(0);
+  }
+
+  _setPlayerRunning() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.currentAnim?.key !== "player-walk") {
+      this.playerSprite.play("player-walk", true);
     }
   }
 
@@ -618,18 +640,15 @@ export default class Level2Scene extends Phaser.Scene {
       this._drawPlayer();
       this._playFootstepSound();
 
-      // Start walking animation
       this.isPlayerMoving = true;
-      this.playerSprite.play("player-walk");
+      this._setPlayerRunning();
 
-      // Stop animation and return to standing frame (frame 0) after 300ms
       if (this.playerMoveTimer) {
         this.playerMoveTimer.remove(false);
       }
-      this.playerMoveTimer = this.time.delayedCall(300, () => {
+      this.playerMoveTimer = this.time.delayedCall(280, () => {
         this.isPlayerMoving = false;
-        this.playerSprite.stop();
-        this.playerSprite.setFrame(0);
+        this._setPlayerIdle();
       });
 
       this._updateFlashlight();

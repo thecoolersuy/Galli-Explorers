@@ -50,14 +50,10 @@ export default class Level1Scene extends Phaser.Scene {
       new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
-    // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
-    this.load.spritesheet(
+    // Load player sheet; frames are sliced manually in _registerPlayerFrames
+    this.load.image(
       "player-girl",
       new URL("../assets/img/1.png", import.meta.url).href,
-      {
-        frameWidth: 230,
-        frameHeight: 430,
-      },
     );
   }
 
@@ -74,6 +70,7 @@ export default class Level1Scene extends Phaser.Scene {
     this._buildMaze();
     this._placeObstacles();
     this._drawMaze();
+    this._registerPlayerFrames();
     this._createPlayerAnimation();
     this._setupPlayer();
     this._setupInput();
@@ -360,15 +357,25 @@ export default class Level1Scene extends Phaser.Scene {
     }
   }
 
+  // Slice the loaded 'player-girl' image texture into 12 frames of 214x400
+  _registerPlayerFrames() {
+    const FRAME_W = 214;
+    const FRAME_H = 400;
+    const NUM_FRAMES = 12;
+    const tex = this.textures.get("player-girl");
+    if (tex.has(1)) return; // already sliced
+    for (let i = 0; i < NUM_FRAMES; i++) {
+      tex.add(i, 0, i * FRAME_W, 0, FRAME_W, FRAME_H);
+    }
+  }
+
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
     this.lastDirection = 1; // 1 = right, -1 = left
     this.isPlayerMoving = false;
 
-    // Create sprite: scale UP to prominently fill grid cell
-    // Original height: 430px, target: ~67px (1.5x cell size)
-    const PLAYER_SCALE = 1.5; // 1.5x the cell size
-    const scale = (CELL_SIZE * PLAYER_SCALE) / 430;
+    const PLAYER_SCALE = 0.85;
+    const scale = (CELL_SIZE * PLAYER_SCALE) / 400;
 
     this.playerSprite = this.add.sprite(
       this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
@@ -377,8 +384,7 @@ export default class Level1Scene extends Phaser.Scene {
       0,
     );
     this.playerSprite.setScale(scale);
-    // Start on standing frame (frame 0)
-    this.playerSprite.setFrame(0);
+    this._setPlayerIdle();
   }
 
   _drawPlayer() {
@@ -392,17 +398,30 @@ export default class Level1Scene extends Phaser.Scene {
   }
 
   _createPlayerAnimation() {
-    // Create 12-frame walking animation at 10 FPS (100ms per frame)
-    if (!this.anims.exists("player-walk")) {
-      this.anims.create({
-        key: "player-walk",
-        frames: this.anims.generateFrameNumbers("player-girl", {
-          start: 0,
-          end: 11,
-        }),
-        frameRate: 10,
-        repeat: -1, // Loop indefinitely
-      });
+    if (this.anims.exists("player-walk")) this.anims.remove("player-walk");
+    this.anims.create({
+      key: "player-walk",
+      frames: this.anims.generateFrameNumbers("player-girl", {
+        start: 1,
+        end: 11,
+      }),
+      frameRate: 10,
+      repeat: -1,
+    });
+  }
+
+  _setPlayerIdle() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.isPlaying) {
+      this.playerSprite.anims.stop();
+    }
+    this.playerSprite.setFrame(0);
+  }
+
+  _setPlayerRunning() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.currentAnim?.key !== "player-walk") {
+      this.playerSprite.play("player-walk", true);
     }
   }
 
@@ -522,18 +541,15 @@ export default class Level1Scene extends Phaser.Scene {
       this._drawPlayer();
       this._playFootstepSound();
 
-      // Start walking animation
       this.isPlayerMoving = true;
-      this.playerSprite.play("player-walk");
+      this._setPlayerRunning();
 
-      // Stop animation and return to standing frame (frame 0) after 300ms
       if (this.playerMoveTimer) {
         this.playerMoveTimer.remove(false);
       }
-      this.playerMoveTimer = this.time.delayedCall(300, () => {
+      this.playerMoveTimer = this.time.delayedCall(280, () => {
         this.isPlayerMoving = false;
-        this.playerSprite.stop();
-        this.playerSprite.setFrame(0);
+        this._setPlayerIdle();
       });
 
       this._checkWin();

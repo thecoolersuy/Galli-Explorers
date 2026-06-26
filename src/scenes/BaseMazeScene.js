@@ -52,13 +52,9 @@ export default class BaseMazeScene extends Phaser.Scene {
       new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
-    this.load.spritesheet(
+    this.load.image(
       "player-girl",
       new URL("../assets/img/1.png", import.meta.url).href,
-      {
-        frameWidth: 230,
-        frameHeight: 430,
-      },
     );
   }
 
@@ -76,6 +72,7 @@ export default class BaseMazeScene extends Phaser.Scene {
     this._buildMaze();
     this._configureLevel();
     this._drawMaze();
+    this._registerPlayerFrames();
     this._createPlayerAnimation();
     this._setupPlayer();
     this._setupSounds();
@@ -237,26 +234,60 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.lastDirection = 1;
     this.isPlayerMoving = false;
 
-    const scale = (CELL_SIZE * 1.5) / 430;
+    // Scale so character is 85% of cell height — fits inside without touching walls
+    const scale = (CELL_SIZE * 0.85) / 400;
     const { x, y } = this._cellCenter(this.playerPos.r, this.playerPos.c);
 
     this.playerSprite = this.add.sprite(x, y, "player-girl", 0);
     this.playerSprite.setScale(scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
-    this.playerSprite.setFrame(0);
+    this._setPlayerIdle();
+  }
+
+  // Slice the loaded 'player-girl' image texture into 12 frames of 214x400
+  _registerPlayerFrames() {
+    const FRAME_W = 214;
+    const FRAME_H = 400;
+    const NUM_FRAMES = 12;
+
+    const tex = this.textures.get("player-girl");
+    // If frames already added (scene restart), skip
+    if (tex.has(1)) return;
+
+    // Add numbered frames directly onto the existing image texture
+    for (let i = 0; i < NUM_FRAMES; i++) {
+      tex.add(i, 0, i * FRAME_W, 0, FRAME_W, FRAME_H);
+    }
   }
 
   _createPlayerAnimation() {
-    if (!this.anims.exists("player-walk")) {
-      this.anims.create({
-        key: "player-walk",
-        frames: this.anims.generateFrameNumbers("player-girl", {
-          start: 0,
-          end: 11,
-        }),
-        frameRate: 10,
-        repeat: -1,
-      });
+    // Always recreate — destroy stale animation from previous level if any
+    if (this.anims.exists("player-walk")) {
+      this.anims.remove("player-walk");
+    }
+    this.anims.create({
+      key: "player-walk",
+      frames: this.anims.generateFrameNumbers("player-girl", {
+        start: 1,
+        end: 11,
+      }),
+      frameRate: 10,
+      repeat: -1,
+    });
+  }
+
+  _setPlayerIdle() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.isPlaying) {
+      this.playerSprite.anims.stop();
+    }
+    this.playerSprite.setFrame(0);
+  }
+
+  _setPlayerRunning() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.currentAnim?.key !== "player-walk") {
+      this.playerSprite.play("player-walk", true);
     }
   }
 
@@ -339,16 +370,15 @@ export default class BaseMazeScene extends Phaser.Scene {
 
   _playWalkAnimation() {
     this.isPlayerMoving = true;
-    this.playerSprite.play("player-walk");
+    this._setPlayerRunning();
 
     if (this.playerMoveTimer) {
       this.playerMoveTimer.remove(false);
     }
 
-    this.playerMoveTimer = this.time.delayedCall(300, () => {
+    this.playerMoveTimer = this.time.delayedCall(280, () => {
       this.isPlayerMoving = false;
-      this.playerSprite.stop();
-      this.playerSprite.setFrame(0);
+      this._setPlayerIdle();
     });
   }
 
