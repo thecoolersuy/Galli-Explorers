@@ -62,10 +62,11 @@ export default class Level2Scene extends Phaser.Scene {
       new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
-    // Load player sheet as plain image, frames sliced manually in _registerPlayerFrames
-    this.load.image(
-      "player-girl-sheet",
+    // Load player atlas
+    this.load.atlas(
+      "player-girl",
       new URL("../assets/img/1.png", import.meta.url).href,
+      new URL("../assets/img/1.json", import.meta.url).href
     );
   }
 
@@ -82,7 +83,6 @@ export default class Level2Scene extends Phaser.Scene {
     this._buildMaze();
     this._placeObstacles();
     this._drawMaze();
-    this._registerPlayerFrames();
     this._createPlayerAnimation();
     this._setupPlayer();
     this._setupFlashlight();
@@ -374,33 +374,19 @@ export default class Level2Scene extends Phaser.Scene {
     }
   }
 
-  // Manually slice the 2576x400 sheet into 12 frames of 214x400
-  _registerPlayerFrames() {
-    const FRAME_W = 214;
-    const FRAME_H = 400;
-    const NUM_FRAMES = 12;
-    if (this.textures.exists("player-girl")) return;
-    const src = this.textures.get("player-girl-sheet").getSourceImage();
-    const tex = this.textures.create("player-girl", src, src.width, src.height);
-    for (let i = 0; i < NUM_FRAMES; i++) {
-      tex.add(i, 0, i * FRAME_W, 0, FRAME_W, FRAME_H);
-    }
-    tex.add("__BASE", 0, 0, 0, src.width, src.height);
-  }
-
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
     this.lastDirection = 1; // 1 = right, -1 = left
     this.isPlayerMoving = false;
 
-    const PLAYER_SCALE = 1.5;
-    const scale = (CELL_SIZE * PLAYER_SCALE) / 400; // frame height = 400px
+    const PLAYER_SCALE = 1.1;
+    const scale = (CELL_SIZE * PLAYER_SCALE) / 400;
 
     this.playerSprite = this.add.sprite(
       this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
       this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
       "player-girl",
-      0,
+      "0",
     );
     this.playerSprite.setScale(scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
@@ -421,7 +407,7 @@ export default class Level2Scene extends Phaser.Scene {
     if (!this.anims.exists("player-walk")) {
       this.anims.create({
         key: "player-walk",
-        frames: this.anims.generateFrameNumbers("player-girl", {
+        frames: this.anims.generateFrameNames("player-girl", {
           start: 1,
           end: 11,
         }),
@@ -436,14 +422,12 @@ export default class Level2Scene extends Phaser.Scene {
     if (this.playerSprite.anims.isPlaying) {
       this.playerSprite.anims.stop();
     }
-    this.playerSprite.setFrame(0);
+    this.playerSprite.setFrame("0");
   }
 
   _setPlayerRunning() {
     if (!this.playerSprite) return;
-    if (this.playerSprite.anims.currentAnim?.key !== "player-walk") {
-      this.playerSprite.play("player-walk", true);
-    }
+    this.playerSprite.play("player-walk", true);
   }
 
   _setupFlashlight() {

@@ -7,10 +7,14 @@ export default class BootScene extends Phaser.Scene {
 
   preload() {
     // Load images (use rath.png for the menu icon instead of lakhey)
-    this.load.image("lakhey", "src/assets/img/rathbrown.png");
+    this.load.image("lakhey", new URL("../assets/img/rathbrown.png", import.meta.url).href);
 
-    // Load player sheet as image; frames are sliced manually in each level scene
-    this.load.image("player-girl-sheet", new URL("../assets/img/1.png", import.meta.url).href);
+    // Load player atlas
+    this.load.atlas(
+      "player-girl",
+      new URL("../assets/img/1.png", import.meta.url).href,
+      new URL("../assets/img/1.json", import.meta.url).href
+    );
 
     console.log("BootScene: preloading assets...");
   }
