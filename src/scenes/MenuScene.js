@@ -23,9 +23,8 @@ export default class MenuScene extends Phaser.Scene {
     // ── EXP BAR (top-left, pixel-art style) ──────────────────────────
     this._drawExpBar();
 
-    // Lakhey image above title
     this.add
-      .image(cx, cy - 180, "lakhey")
+      .image(cx, cy - 180, "menu-rath")
       .setOrigin(0.5)
       .setScale(0.6);
 

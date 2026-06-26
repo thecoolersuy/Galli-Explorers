@@ -5,6 +5,19 @@ import audio from "../styles/audio.js";
 
 const RATH_MOVE_MS = 380;
 const BALL_MOVE_MS = 320;
+const LAKHEY_WALK_ACTIVE_MS = 280;
+const LAKHEY_SOURCE_TEXTURE = "lakheyfinal-source";
+const LAKHEY_FRAME_TEXTURE_PREFIX = "lakhey-walk-frame";
+const LAKHEY_ANIMATION = "lakhey-walk-cycle";
+const LAKHEY_FRAME_WIDTH = 258;
+const LAKHEY_FRAME_HEIGHT = 400;
+const LAKHEY_FRAME_SOURCE_Y = 124;
+const LAKHEY_VISIBLE_HEIGHT = 320;
+const LAKHEY_SCALE = 56 / LAKHEY_VISIBLE_HEIGHT;
+const LAKHEY_ORIGIN_Y = 389 / LAKHEY_FRAME_HEIGHT;
+const LAKHEY_STATE_IDLE = "idle";
+const LAKHEY_STATE_WALKING = "walking";
+const LAKHEY_STATE_CAUGHT = "caught";
 
 export default class Level3Scene extends BaseMazeScene {
   constructor() {
@@ -20,8 +33,8 @@ export default class Level3Scene extends BaseMazeScene {
 
 
     this.load.image(
-      "lakheypic",
-      new URL("../assets/img/lakhey.png", import.meta.url).href,
+      LAKHEY_SOURCE_TEXTURE,
+      new URL("../assets/img/lakheyfinal.png", import.meta.url).href,
     );
     this.load.image(
       "rath",
@@ -62,9 +75,14 @@ export default class Level3Scene extends BaseMazeScene {
     // Setup single red ball (Lakhey)
     this.redBalls = [{
       currentCell: { ...this.redBallStart },
+      previousCell: { ...this.redBallStart },
+      isMoving: false,
+      lastMovedAt: 0,
+      state: LAKHEY_STATE_IDLE,
       sprite: null,
     }];
 
+    this._createLakheyAnimation();
     this._createBallSprites();
 
     // Initialize chase state variables
@@ -82,19 +100,68 @@ export default class Level3Scene extends BaseMazeScene {
   }
 
   _createBallSprites() {
+    this._createLakheyFrameTextures();
+
     for (const ball of this.redBalls) {
-      ball.sprite = this.add.image(0, 0, "lakheypic");
-      ball.sprite.setOrigin(0.5);
+      ball.sprite = this.add.sprite(0, 0, `${LAKHEY_FRAME_TEXTURE_PREFIX}-0`);
+      ball.sprite.setOrigin(0.5, LAKHEY_ORIGIN_Y);
       ball.sprite.setDepth(25);
-      ball.sprite.setScale(0.15);
+      ball.sprite.setScale(LAKHEY_SCALE);
+      ball.sprite.setTexture(`${LAKHEY_FRAME_TEXTURE_PREFIX}-0`);
     }
   }
 
   _drawBalls() {
     for (const ball of this.redBalls) {
       const { x, y } = this._cellCenter(ball.currentCell.r, ball.currentCell.c);
-      ball.sprite.setPosition(x, y);
+      ball.sprite.setPosition(x, y + this.CELL_SIZE / 2);
     }
+  }
+
+  _createLakheyAnimation() {
+    if (this.anims.exists(LAKHEY_ANIMATION)) return;
+
+    this._createLakheyFrameTextures();
+
+    this.anims.create({
+      key: LAKHEY_ANIMATION,
+      frames: this.lakheyFrameKeys.map((key) => ({ key })),
+      frameRate: 6,
+      repeat: -1,
+    });
+  }
+
+  _createLakheyFrameTextures() {
+    if (this.lakheyFrameKeys) return;
+
+    const source = this.textures.get(LAKHEY_SOURCE_TEXTURE).getSourceImage();
+    const frameCount = Math.floor(source.width / LAKHEY_FRAME_WIDTH);
+
+    this.lakheyFrameKeys = Array.from({ length: frameCount }, (_, index) => {
+      const key = `${LAKHEY_FRAME_TEXTURE_PREFIX}-${index}`;
+      if (this.textures.exists(key)) return key;
+
+      const frameTexture = this.textures.createCanvas(
+        key,
+        LAKHEY_FRAME_WIDTH,
+        LAKHEY_FRAME_HEIGHT,
+      );
+      const ctx = frameTexture.context;
+      ctx.clearRect(0, 0, LAKHEY_FRAME_WIDTH, LAKHEY_FRAME_HEIGHT);
+      ctx.drawImage(
+        source,
+        index * LAKHEY_FRAME_WIDTH,
+        LAKHEY_FRAME_SOURCE_Y,
+        LAKHEY_FRAME_WIDTH,
+        LAKHEY_FRAME_HEIGHT,
+        0,
+        0,
+        LAKHEY_FRAME_WIDTH,
+        LAKHEY_FRAME_HEIGHT,
+      );
+      frameTexture.refresh();
+      return key;
+    });
   }
 
   _updateLevel(time) {
@@ -113,32 +180,101 @@ export default class Level3Scene extends BaseMazeScene {
     }
 
     // Update chasing red ball (Lakhey)
-    if (this.isChasing) {
+    if (this.gameOver) {
+      this._freezeLakheyAnimation();
+    } else if (this.isChasing) {
       if (!this.lastChaseMoveTime) {
         this.lastChaseMoveTime = time;
       }
 
-      // Speed: medium (every 380ms)
-      if (time - this.lastChaseMoveTime >= 250) {
+      if (time - this.lastChaseMoveTime >= BALL_MOVE_MS) {
         this.lastChaseMoveTime = time;
 
         const ball = this.redBalls[0];
+        ball.previousCell = { ...ball.currentCell };
         const path = this._findMazePath(ball.currentCell, this.playerPos);
         if (path && path.length > 1) {
           ball.currentCell = path[1];
         }
+        ball.isMoving =
+          ball.currentCell.r !== ball.previousCell.r ||
+          ball.currentCell.c !== ball.previousCell.c;
+        if (ball.isMoving) {
+          ball.lastMovedAt = time;
+        }
+      }
+    } else if (this.redBalls) {
+      for (const ball of this.redBalls) {
+        ball.isMoving = false;
       }
     }
 
     this._drawBalls();
+    this._updateLakheyAnimation(time);
 
     // Check collision with player
     if (this._isHazardAt(this.playerPos.r, this.playerPos.c)) {
+      this._freezeLakheyAnimation();
       this._triggerGameOver(this.gameOverText);
     }
 
     // Update sound based on proximity
     this._updateRathSound();
+  }
+
+  _updateLakheyAnimation(time) {
+    if (!this.redBalls) return;
+
+    for (const ball of this.redBalls) {
+      if (!ball.sprite) continue;
+      if (ball.state === LAKHEY_STATE_CAUGHT) continue;
+      const isMoving = ball.lastMovedAt > 0 && time - ball.lastMovedAt <= LAKHEY_WALK_ACTIVE_MS;
+
+      if (isMoving) {
+        this._setLakheyState(ball, LAKHEY_STATE_WALKING);
+      } else {
+        this._setLakheyState(ball, LAKHEY_STATE_IDLE);
+      }
+
+      ball.isMoving = isMoving;
+    }
+  }
+
+  _setLakheyState(ball, state) {
+    if (!ball.sprite || ball.state === LAKHEY_STATE_CAUGHT) return;
+
+    if (ball.state === state) return;
+    ball.state = state;
+
+    if (state === LAKHEY_STATE_WALKING) {
+      ball.sprite.play(LAKHEY_ANIMATION, true);
+      return;
+    }
+
+    if (ball.sprite.anims.isPlaying) {
+      ball.sprite.anims.stop();
+    }
+    ball.sprite.setTexture(`${LAKHEY_FRAME_TEXTURE_PREFIX}-0`);
+  }
+
+  _freezeLakheyAnimation() {
+    if (!this.redBalls) return;
+
+    for (const ball of this.redBalls) {
+      if (!ball.sprite) continue;
+
+      if (ball.sprite.anims.isPlaying) {
+        ball.sprite.anims.stop();
+      }
+      ball.state = LAKHEY_STATE_CAUGHT;
+      ball.isMoving = false;
+      ball.lastMovedAt = 0;
+    }
+  }
+
+  _triggerGameOver(message = "Game Over!") {
+    this._freezeLakheyAnimation();
+    super._triggerGameOver(message);
   }
 
   _afterPlayerMove(fromCell, toCell) {

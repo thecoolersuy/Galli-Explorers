@@ -6,8 +6,7 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load images (use rath.png for the menu icon instead of lakhey)
-    this.load.image("lakhey", new URL("../assets/img/rathbrown.png", import.meta.url).href);
+    this.load.image("menu-rath", new URL("../assets/img/rathbrown.png", import.meta.url).href);
 
     // Load player atlas (Maicha)
     this.load.atlas(
