@@ -16,10 +16,11 @@ export default class BootScene extends Phaser.Scene {
       new URL("../assets/img/1.json", import.meta.url).href
     );
 
-    // Load Baucha spritesheet
+    // Baucha sheet has 9 columns; keep the whole source height so the lower body is not clipped.
     this.load.spritesheet("player-boy", new URL("../assets/img/bauchasprite.png", import.meta.url).href, {
-      frameWidth: 181,
-      frameHeight: 250,
+      frameWidth: 230,
+      frameHeight: 724,
+      endFrame: 8,
     });
 
     console.log("BootScene: preloading assets...");

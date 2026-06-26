@@ -5,9 +5,11 @@ import colors from "../styles/colors.js";
 import audio from "../styles/audio.js";
 import ProgressManager from "../logic/ProgressManager.js";
 import {
+  applyCharacterSpriteLayout,
   createCharacterWalkAnimation,
   getCharacterCellScale,
   getCharacterConfig,
+  getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
 
 const CELL_SIZE = 45;
@@ -370,13 +372,22 @@ export default class Level1Scene extends Phaser.Scene {
 
     const scale = getCharacterCellScale(this.playerCharacter, CELL_SIZE);
 
+    const cellCenterX = this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2;
+    const cellCenterY = this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2;
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
+      cellCenterX,
+      cellCenterY,
+      CELL_SIZE,
+    );
+
     this.playerSprite = this.add.sprite(
-      this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
-      this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
+      x,
+      y,
       this.playerCharacter.textureKey,
       this.playerCharacter.idleFrame,
     );
-    this.playerSprite.setScale(scale);
+    applyCharacterSpriteLayout(this.playerSprite, this.playerCharacter, scale);
     this._setPlayerIdle();
   }
 
@@ -384,10 +395,13 @@ export default class Level1Scene extends Phaser.Scene {
     const { offsetX, offsetY, playerPos } = this;
     const S = CELL_SIZE;
 
-    this.playerSprite.setPosition(
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
       offsetX + playerPos.c * S + S / 2,
       offsetY + playerPos.r * S + S / 2,
+      S,
     );
+    this.playerSprite.setPosition(x, y);
   }
 
   _createPlayerAnimation() {

@@ -1,10 +1,14 @@
 import Phaser from "phaser";
 import colors from "../styles/colors.js";
 import ProgressManager from "../logic/ProgressManager.js";
-import { CHARACTERS } from "../logic/CharacterConfig.js";
+import {
+  applyCharacterSpriteLayout,
+  CHARACTERS,
+  getCharacterPreviewScale,
+} from "../logic/CharacterConfig.js";
 
-const CARD_WIDTH = 180;
-const CARD_HEIGHT = 210;
+const CARD_WIDTH = 210;
+const CARD_HEIGHT = 245;
 const BAUCHA_COST = 200;
 
 export default class CharacterSelectionScene extends Phaser.Scene {
@@ -40,7 +44,7 @@ export default class CharacterSelectionScene extends Phaser.Scene {
 
     const spacing = Math.min(260, Math.max(210, this.scale.width * 0.28));
     const startX = this.cx - spacing / 2;
-    const cardY = this.cy - 10;
+    const cardY = this.cy - 2;
 
     CHARACTERS.forEach((character, index) => {
       const x = startX + index * spacing;
@@ -67,27 +71,41 @@ export default class CharacterSelectionScene extends Phaser.Scene {
     border.setStrokeStyle(isSelected ? 6 : 4, isSelected ? colors.lightNum : colors.controlsNum);
     this.cardGroup.addMultiple([shadow, bg, inner, border, topHighlight]);
 
-    const sprite = this.add
-      .sprite(x, y - 34, character.textureKey, character.idleFrame)
-      .setScale(character.previewScale);
+    const selectCharacter = () => {
+      if (!isUnlocked) return;
+      ProgressManager.selectCharacter(character.id);
+      this.selected = character.id;
+      this._createCards();
+    };
+
+    const sprite = this.add.sprite(
+      x,
+      y + character.previewOffsetY,
+      character.textureKey,
+      character.idleFrame,
+    );
+
+    applyCharacterSpriteLayout(sprite, character, getCharacterPreviewScale(character));
     this.cardGroup.add(sprite);
 
     if (!isUnlocked) {
-      sprite.setTint(0x303030);
-      const veil = this.add.rectangle(x, y - 34, 104, 108, colors.deepNum, 0.45);
-      const lockBadge = this.add.rectangle(x, y - 34, 76, 38, colors.deepNum, 0.9);
+      sprite.setTint(0x777777);
+      sprite.setAlpha(0.78);
+      const lockX = x + CARD_WIDTH / 2 - 44;
+      const lockY = y - CARD_HEIGHT / 2 + 30;
+      const lockBadge = this.add.rectangle(lockX, lockY, 76, 34, colors.deepNum, 0.9);
       const lockText = this.add
-        .text(x, y - 34, "LOCK", {
+        .text(lockX, lockY, "LOCK", {
           fontFamily: "EarlyGameBoy",
           fontSize: "12px",
           color: colors.light,
         })
         .setOrigin(0.5);
-      this.cardGroup.addMultiple([veil, lockBadge, lockText]);
+      this.cardGroup.addMultiple([lockBadge, lockText]);
     }
 
     const nameText = this.add
-      .text(x, y + 68, character.name, {
+      .text(x, y + 82, character.name, {
         fontFamily: "EarlyGameBoy",
         fontSize: "15px",
         color: colors.light,
@@ -97,7 +115,7 @@ export default class CharacterSelectionScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const statusText = this.add
-      .text(x, y + 95, this._getStatusText(character, isUnlocked, isSelected), {
+      .text(x, y + 110, this._getStatusText(character, isUnlocked, isSelected), {
         fontFamily: "EarlyGameBoy",
         fontSize: "9px",
         color: isSelected ? "#ffffff" : colors.accent,
@@ -107,16 +125,13 @@ export default class CharacterSelectionScene extends Phaser.Scene {
 
     this.cardGroup.addMultiple([nameText, statusText]);
 
+    bg.setInteractive({ useHandCursor: true });
     border.setInteractive({ useHandCursor: true });
-    border.on("pointerdown", () => {
-      if (!isUnlocked) return;
-      ProgressManager.selectCharacter(character.id);
-      this.selected = character.id;
-      this._createCards();
-    });
+    bg.on("pointerdown", selectCharacter);
+    border.on("pointerdown", selectCharacter);
 
     if (!isUnlocked) {
-      this._createUnlockButton(character, x, y + 142);
+      this._createUnlockButton(character, x, y + 160);
     }
   }
 
@@ -130,7 +145,7 @@ export default class CharacterSelectionScene extends Phaser.Scene {
     const canUnlock = ProgressManager.getXP() >= cost;
     const btnBg = this.add.rectangle(x, y, 162, 38, canUnlock ? colors.panelNum : colors.darkNum);
     const btnText = this.add
-      .text(x, y, canUnlock ? "UNLOCK\n(200 EXP)" : "LOCKED", {
+      .text(x, y, canUnlock ? `UNLOCK\n(${cost} EXP)` : "LOCKED", {
         fontFamily: "EarlyGameBoy",
         fontSize: "10px",
         color: colors.light,
@@ -165,7 +180,7 @@ export default class CharacterSelectionScene extends Phaser.Scene {
 
   _createPlayButton() {
     const nextLevel = ProgressManager.getNextLevel();
-    const y = this.cy + 205;
+    const y = Math.min(this.scale.height - 88, this.cy + 230);
 
     const playShadow = this.add.rectangle(this.cx + 6, y + 6, 210, 58, colors.deepNum);
     const playBody = this.add.rectangle(this.cx, y, 210, 58, colors.darkNum);
@@ -186,12 +201,14 @@ export default class CharacterSelectionScene extends Phaser.Scene {
 
     playBody.setInteractive({ useHandCursor: true });
     playBody.on("pointerdown", () => {
+      ProgressManager.selectCharacter(this.selected);
       this.scene.start("LevelIntroScene", { level: nextLevel });
     });
     playBody.on("pointerover", () => playBody.setScale(1.04));
     playBody.on("pointerout", () => playBody.setScale(1));
 
     this.input.keyboard?.once("keydown-ENTER", () => {
+      ProgressManager.selectCharacter(this.selected);
       this.scene.start("LevelIntroScene", { level: nextLevel });
     });
   }

@@ -4,9 +4,11 @@ import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
 import ProgressManager from "../logic/ProgressManager.js";
 import {
+  applyCharacterSpriteLayout,
   createCharacterWalkAnimation,
   getCharacterCellScale,
   getCharacterConfig,
+  getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
 
 const CELL_SIZE = 45;
@@ -241,7 +243,13 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.isPlayerMoving = false;
 
     const scale = getCharacterCellScale(this.playerCharacter, CELL_SIZE);
-    const { x, y } = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const cellCenter = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
+      cellCenter.x,
+      cellCenter.y,
+      CELL_SIZE,
+    );
 
     this.playerSprite = this.add.sprite(
       x,
@@ -249,7 +257,7 @@ export default class BaseMazeScene extends Phaser.Scene {
       this.playerCharacter.textureKey,
       this.playerCharacter.idleFrame,
     );
-    this.playerSprite.setScale(scale);
+    applyCharacterSpriteLayout(this.playerSprite, this.playerCharacter, scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
     this._setPlayerIdle();
   }
@@ -344,7 +352,13 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _drawPlayer() {
-    const { x, y } = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const cellCenter = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
+      cellCenter.x,
+      cellCenter.y,
+      CELL_SIZE,
+    );
     this.playerSprite.setPosition(x, y);
   }
 
