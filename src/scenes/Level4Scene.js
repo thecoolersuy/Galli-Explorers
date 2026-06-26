@@ -1,6 +1,7 @@
 import BaseMazeScene from "./BaseMazeScene.js";
 import MazeKey from "../sprites/MazeKey.js";
 import LockedGate from "../sprites/LockedGate.js";
+import RathObstacle from "../sprites/RathObstacle.js";
 import Phaser from "phaser";
 import audio from "../styles/audio.js";
 
@@ -40,6 +41,7 @@ export default class Level4Scene extends BaseMazeScene {
     };
 
     this.keyCell = this._chooseKeyCell(this.gateEdge);
+    this.rathRoutes = this._configureRathRoutes();
   }
 
   _setupLevelObjects() {
@@ -51,7 +53,14 @@ export default class Level4Scene extends BaseMazeScene {
       id: "level-4-key",
     });
 
-    this._setupRaths();
+    this.rathObstacles = this.rathRoutes.map(
+      (route, index) =>
+        new RathObstacle(this, {
+          route,
+          phase: index * 2,
+          moveMs: 380 + index * 70,
+        }),
+    );
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -62,7 +71,7 @@ export default class Level4Scene extends BaseMazeScene {
     this.rathSound.play();
   }
 
-  _setupRaths() {
+  _configureRathRoutes() {
     const anchors = [
       {
         r: Math.floor(this.nrows * 0.22),
@@ -76,31 +85,50 @@ export default class Level4Scene extends BaseMazeScene {
         r: Math.floor(this.nrows * 0.72),
         c: Math.floor(this.ncols * 0.40),
       },
+      {
+        r: Math.floor(this.nrows * 0.32),
+        c: Math.floor(this.ncols * 0.78),
+      },
+      {
+        r: Math.floor(this.nrows * 0.66),
+        c: Math.floor(this.ncols * 0.22),
+      },
+      {
+        r: Math.floor(this.nrows * 0.78),
+        c: Math.floor(this.ncols * 0.68),
+      },
     ];
 
-    this.obstacles = [];
+    const routes = [];
 
-    for (let i = 0; i < anchors.length; i++) {
-      const { r, c } = anchors[i];
+    for (const { r, c } of anchors) {
+      if (routes.length >= 3) break;
 
-      const route = this._buildObstacleRoute(r, c);
+      if (
+        r < 2 ||
+        c < 2 ||
+        r >= this.nrows - 2 ||
+        c >= this.ncols - 2
+      ) {
+        continue;
+      }
+
+      const route = this._buildRathRoute(r, c);
 
       if (route.length < 4) continue;
+      if (routes.some((existingRoute) => existingRoute[0].r === route[0].r && existingRoute[0].c === route[0].c)) {
+        continue;
+      }
 
-      this.obstacles.push({
-        route,
-        phase: i * 2,
-        moveMs: 380 + i * 70,
-        currentCell: route[0],
-      });
+      this._openRathRing(r, c);
+      routes.push(route);
     }
 
-    this._createObstacleSprites();
-    this._drawObstacles();
+    return routes;
   }
 
-  _buildObstacleRoute(r, c) {
-    return [
+  _buildRathRoute(r, c) {
+    const route = [
       { r: r - 1, c: c - 1 },
       { r: r - 1, c },
       { r: r - 1, c: c + 1 },
@@ -109,65 +137,79 @@ export default class Level4Scene extends BaseMazeScene {
       { r: r + 1, c },
       { r: r + 1, c: c - 1 },
       { r, c: c - 1 },
-    ].filter(
-      ({ r: row, c: col }) =>
-        row > 0 &&
-        col > 0 &&
-        row < this.nrows - 1 &&
-        col < this.ncols - 1,
-    );
+    ];
+
+    return route.every(({ r: row, c: col }) => this._isRathRouteCellAllowed(row, col))
+      ? route
+      : [];
   }
 
-  _createObstacleSprites() {
-    const textureKey = "rath-obstacle";
-    const targetWidth = Math.round(this.CELL_SIZE * 1.8);
-    const targetHeight = Math.round(this.CELL_SIZE * 1.8);
+  _openRathRing(r, c) {
+    const ring = [
+      [r - 1, c - 1],
+      [r - 1, c],
+      [r - 1, c + 1],
+      [r, c + 1],
+      [r + 1, c + 1],
+      [r + 1, c],
+      [r + 1, c - 1],
+      [r, c - 1],
+    ];
 
-    if (!this.textures.exists(textureKey)) {
-      const sourceTexture = this.textures.get("rath");
-      const source = sourceTexture.getSourceImage();
-
-      const renderTexture = this.textures.createCanvas(
-        textureKey,
-        targetWidth,
-        targetHeight,
-      );
-
-      const ctx = renderTexture.context;
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.clearRect(0, 0, targetWidth, targetHeight);
-      ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
-
-      renderTexture.refresh();
-    }
-
-    for (const obstacle of this.obstacles) {
-      obstacle.sprite = this.add.image(0, 0, textureKey);
-      obstacle.sprite.setOrigin(0.5);
-      obstacle.sprite.setDepth(50);
+    for (let index = 0; index < ring.length; index++) {
+      const [r1, c1] = ring[index];
+      const [r2, c2] = ring[(index + 1) % ring.length];
+      this._openPassage(r1, c1, r2, c2);
     }
   }
 
-  _drawObstacles() {
-    if (!this.obstacles) return;
+  _openPassage(r1, c1, r2, c2) {
+    if (
+      r1 < 0 ||
+      c1 < 0 ||
+      r2 < 0 ||
+      c2 < 0 ||
+      r1 >= this.nrows ||
+      r2 >= this.nrows ||
+      c1 >= this.ncols ||
+      c2 >= this.ncols
+    ) {
+      return;
+    }
 
-    for (const obstacle of this.obstacles) {
-      const { x, y } = this._cellCenter(
-        obstacle.currentCell.r,
-        obstacle.currentCell.c,
-      );
+    if (
+      this._isGateCell(r1, c1) ||
+      this._isGateCell(r2, c2) ||
+      this._isKeyCell(r1, c1) ||
+      this._isKeyCell(r2, c2)
+    ) {
+      return;
+    }
 
-      obstacle.sprite.setPosition(x, y);
+    const cell1 = this.grid[r1 * this.ncols + c1];
+    const cell2 = this.grid[r2 * this.ncols + c2];
+
+    if (!cell1 || !cell2) return;
+
+    if (r1 === r2 && c1 + 1 === c2) {
+      cell1.walls[1] = false;
+      cell2.walls[3] = false;
+    } else if (r1 === r2 && c1 - 1 === c2) {
+      cell1.walls[3] = false;
+      cell2.walls[1] = false;
+    } else if (c1 === c2 && r1 + 1 === r2) {
+      cell1.walls[2] = false;
+      cell2.walls[0] = false;
+    } else if (c1 === c2 && r1 - 1 === r2) {
+      cell1.walls[0] = false;
+      cell2.walls[2] = false;
     }
   }
 
   _isHazardAt(r, c) {
-    return this.obstacles?.some(
-      (obstacle) =>
-        obstacle.currentCell.r === r &&
-        obstacle.currentCell.c === c,
-    );
+    return this.rathObstacles
+      ? this.rathObstacles.some((rath) => rath.occupiesCell(r, c))
+      : false;
   }
 
   _updateRathSound() {
@@ -175,7 +217,7 @@ export default class Level4Scene extends BaseMazeScene {
 
     let minDist = Infinity;
 
-    for (const obstacle of this.obstacles) {
+    for (const obstacle of this.rathObstacles) {
       const dist =
         Math.abs(this.playerPos.r - obstacle.currentCell.r) +
         Math.abs(this.playerPos.c - obstacle.currentCell.c);
@@ -221,16 +263,12 @@ export default class Level4Scene extends BaseMazeScene {
   }
 
   _updateLevel(time) {
-    if (!this.obstacles?.length) return;
+    if (!this.rathObstacles?.length) return;
 
     let hitPlayer = false;
 
-    for (const obstacle of this.obstacles) {
-      const step =
-        Math.floor(time / obstacle.moveMs + obstacle.phase) %
-        obstacle.route.length;
-
-      obstacle.currentCell = obstacle.route[step];
+    for (const obstacle of this.rathObstacles) {
+      obstacle.update(time);
 
       if (
         obstacle.currentCell.r === this.playerPos.r &&
@@ -240,12 +278,37 @@ export default class Level4Scene extends BaseMazeScene {
       }
     }
 
-    this._drawObstacles();
     this._updateRathSound(); // Sound volume increases as raths get closer
 
     if (hitPlayer) {
       this._triggerGameOver("You were hit by the jatra crowd!");
     }
+  }
+
+  _isGateCell(r, c) {
+    if (!this.gateEdge) return false;
+
+    return (
+      (this.gateEdge.a.r === r && this.gateEdge.a.c === c) ||
+      (this.gateEdge.b.r === r && this.gateEdge.b.c === c)
+    );
+  }
+
+  _isKeyCell(r, c) {
+    return this.keyCell?.r === r && this.keyCell?.c === c;
+  }
+
+  _isRathRouteCellAllowed(r, c) {
+    return (
+      r > 0 &&
+      c > 0 &&
+      r < this.nrows - 1 &&
+      c < this.ncols - 1 &&
+      !(r === 0 && c === 0) &&
+      !(r === this.nrows - 1 && c === this.ncols - 1) &&
+      !this._isGateCell(r, c) &&
+      !this._isKeyCell(r, c)
+    );
   }
 
   _stopLevelAudio() {
