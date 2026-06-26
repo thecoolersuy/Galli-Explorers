@@ -3,6 +3,11 @@ import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
 import ProgressManager from "../logic/ProgressManager.js";
+import {
+  createCharacterWalkAnimation,
+  getCharacterCellScale,
+  getCharacterConfig,
+} from "../logic/CharacterConfig.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -69,6 +74,7 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.gameOver = false;
     this.levelComplete = false;
+    this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
     this._buildMaze();
     this._configureLevel();
@@ -234,30 +240,22 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.lastDirection = 1;
     this.isPlayerMoving = false;
 
-    // Scale so character is a bit bigger but fits inside the cell
-    const scale = (CELL_SIZE * 1.1) / 400;
+    const scale = getCharacterCellScale(this.playerCharacter, CELL_SIZE);
     const { x, y } = this._cellCenter(this.playerPos.r, this.playerPos.c);
 
-    this.playerSprite = this.add.sprite(x, y, "player-girl", "0");
+    this.playerSprite = this.add.sprite(
+      x,
+      y,
+      this.playerCharacter.textureKey,
+      this.playerCharacter.idleFrame,
+    );
     this.playerSprite.setScale(scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
     this._setPlayerIdle();
   }
 
   _createPlayerAnimation() {
-    // Always recreate — destroy stale animation from previous level if any
-    if (this.anims.exists("player-walk")) {
-      this.anims.remove("player-walk");
-    }
-    this.anims.create({
-      key: "player-walk",
-      frames: this.anims.generateFrameNames("player-girl", {
-        start: 1,
-        end: 11,
-      }),
-      frameRate: 10,
-      repeat: -1,
-    });
+    createCharacterWalkAnimation(this, this.playerCharacter, "player-walk");
   }
 
   _setPlayerIdle() {
@@ -265,7 +263,7 @@ export default class BaseMazeScene extends Phaser.Scene {
     if (this.playerSprite.anims.isPlaying) {
       this.playerSprite.anims.stop();
     }
-    this.playerSprite.setFrame("0");
+    this.playerSprite.setFrame(this.playerCharacter.idleFrame);
   }
 
   _setPlayerRunning() {
