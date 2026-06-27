@@ -4,6 +4,13 @@ import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
 import audio from "../styles/audio.js";
 import ProgressManager from "../logic/ProgressManager.js";
+import {
+  applyCharacterSpriteLayout,
+  createCharacterWalkAnimation,
+  getCharacterCellScale,
+  getCharacterConfig,
+  getCharacterRenderPosition,
+} from "../logic/CharacterConfig.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -62,14 +69,11 @@ export default class Level2Scene extends Phaser.Scene {
       new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
-    // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
-    this.load.spritesheet(
+    // Load player atlas
+    this.load.atlas(
       "player-girl",
       new URL("../assets/img/1.png", import.meta.url).href,
-      {
-        frameWidth: 230,
-        frameHeight: 430,
-      },
+      new URL("../assets/img/1.json", import.meta.url).href
     );
   }
 
@@ -82,6 +86,7 @@ export default class Level2Scene extends Phaser.Scene {
     this.offsetY = Math.floor((this.scale.height - this.nrows * CELL_SIZE) / 2);
 
     this.gameOver = false;
+    this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
     this._buildMaze();
     this._placeObstacles();
@@ -382,46 +387,56 @@ export default class Level2Scene extends Phaser.Scene {
     this.lastDirection = 1; // 1 = right, -1 = left
     this.isPlayerMoving = false;
 
-    // Create sprite: scale UP to prominently fill grid cell
-    // Original height: 430px, target: ~67px (1.5x cell size)
-    const PLAYER_SCALE = 1.5; // 1.5x the cell size
-    const scale = (CELL_SIZE * PLAYER_SCALE) / 430;
+    const scale = getCharacterCellScale(this.playerCharacter, CELL_SIZE);
+
+    const cellCenterX = this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2;
+    const cellCenterY = this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2;
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
+      cellCenterX,
+      cellCenterY,
+      CELL_SIZE,
+    );
 
     this.playerSprite = this.add.sprite(
-      this.offsetX + this.playerPos.c * CELL_SIZE + CELL_SIZE / 2,
-      this.offsetY + this.playerPos.r * CELL_SIZE + CELL_SIZE / 2,
-      "player-girl",
-      0,
+      x,
+      y,
+      this.playerCharacter.textureKey,
+      this.playerCharacter.idleFrame,
     );
-    this.playerSprite.setScale(scale);
+    applyCharacterSpriteLayout(this.playerSprite, this.playerCharacter, scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
-    // Start on standing frame (frame 0)
-    this.playerSprite.setFrame(0);
+    this._setPlayerIdle();
   }
 
   _drawPlayer() {
     const { offsetX, offsetY, playerPos } = this;
     const S = CELL_SIZE;
 
-    this.playerSprite.setPosition(
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
       offsetX + playerPos.c * S + S / 2,
       offsetY + playerPos.r * S + S / 2,
+      S,
     );
+    this.playerSprite.setPosition(x, y);
   }
 
   _createPlayerAnimation() {
-    // Create 12-frame walking animation at 10 FPS (100ms per frame)
-    if (!this.anims.exists("player-walk")) {
-      this.anims.create({
-        key: "player-walk",
-        frames: this.anims.generateFrameNumbers("player-girl", {
-          start: 0,
-          end: 11,
-        }),
-        frameRate: 10,
-        repeat: -1, // Loop indefinitely
-      });
+    createCharacterWalkAnimation(this, this.playerCharacter, "player-walk");
+  }
+
+  _setPlayerIdle() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.isPlaying) {
+      this.playerSprite.anims.stop();
     }
+    this.playerSprite.setFrame(this.playerCharacter.idleFrame);
+  }
+
+  _setPlayerRunning() {
+    if (!this.playerSprite) return;
+    this.playerSprite.play("player-walk", true);
   }
 
   _setupFlashlight() {
@@ -618,18 +633,15 @@ export default class Level2Scene extends Phaser.Scene {
       this._drawPlayer();
       this._playFootstepSound();
 
-      // Start walking animation
       this.isPlayerMoving = true;
-      this.playerSprite.play("player-walk");
+      this._setPlayerRunning();
 
-      // Stop animation and return to standing frame (frame 0) after 300ms
       if (this.playerMoveTimer) {
         this.playerMoveTimer.remove(false);
       }
-      this.playerMoveTimer = this.time.delayedCall(300, () => {
+      this.playerMoveTimer = this.time.delayedCall(280, () => {
         this.isPlayerMoving = false;
-        this.playerSprite.stop();
-        this.playerSprite.setFrame(0);
+        this._setPlayerIdle();
       });
 
       this._updateFlashlight();

@@ -6,13 +6,20 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load images (use rath.png for the menu icon instead of lakhey)
-    this.load.image("lakhey", "src/assets/img/rathbrown.png");
+    this.load.image("menu-rath", new URL("../assets/img/rathbrown.png", import.meta.url).href);
 
-    // Load player spritesheet: 12 horizontal frames, each 230px wide x 430px tall
-    this.load.spritesheet("player-girl", "src/assets/img/1.png", {
+    // Load player atlas (Maicha)
+    this.load.atlas(
+      "player-girl",
+      new URL("../assets/img/1.png", import.meta.url).href,
+      new URL("../assets/img/1.json", import.meta.url).href
+    );
+
+    // Baucha sheet has 9 columns; keep the whole source height so the lower body is not clipped.
+    this.load.spritesheet("player-boy", new URL("../assets/img/bauchasprite.png", import.meta.url).href, {
       frameWidth: 230,
-      frameHeight: 430,
+      frameHeight: 724,
+      endFrame: 8,
     });
 
     console.log("BootScene: preloading assets...");

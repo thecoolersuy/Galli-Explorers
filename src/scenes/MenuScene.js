@@ -23,9 +23,8 @@ export default class MenuScene extends Phaser.Scene {
     // ── EXP BAR (top-left, pixel-art style) ──────────────────────────
     this._drawExpBar();
 
-    // Lakhey image above title
     this.add
-      .image(cx, cy - 180, "lakhey")
+      .image(cx, cy - 180, "menu-rath")
       .setOrigin(0.5)
       .setScale(0.6);
 
@@ -100,7 +99,7 @@ export default class MenuScene extends Phaser.Scene {
 
     playBody.setInteractive({ useHandCursor: true });
     playBody.on("pointerdown", () => {
-      this.scene.start("LevelIntroScene", { level: nextLevel });
+      this.scene.start("CharacterSelectionScene");
     });
     playBody.on("pointerover", () => playBody.setScale(1.04));
     playBody.on("pointerout", () => playBody.setScale(1));
@@ -111,7 +110,7 @@ export default class MenuScene extends Phaser.Scene {
     playText.setDepth(4);
 
     this.input.keyboard?.once("keydown-ENTER", () => {
-      this.scene.start("LevelIntroScene", { level: nextLevel });
+      this.scene.start("CharacterSelectionScene");
     });
   }
 

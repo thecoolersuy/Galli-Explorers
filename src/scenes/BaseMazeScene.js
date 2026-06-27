@@ -3,6 +3,13 @@ import Cell from "../logic/Cell.js";
 import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
 import ProgressManager from "../logic/ProgressManager.js";
+import {
+  applyCharacterSpriteLayout,
+  createCharacterWalkAnimation,
+  getCharacterCellScale,
+  getCharacterConfig,
+  getCharacterRenderPosition,
+} from "../logic/CharacterConfig.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -52,13 +59,10 @@ export default class BaseMazeScene extends Phaser.Scene {
       new URL("../assets/audio/levelcompleted.mp3", import.meta.url).href,
     );
 
-    this.load.spritesheet(
+    this.load.atlas(
       "player-girl",
       new URL("../assets/img/1.png", import.meta.url).href,
-      {
-        frameWidth: 230,
-        frameHeight: 430,
-      },
+      new URL("../assets/img/1.json", import.meta.url).href
     );
   }
 
@@ -72,6 +76,7 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.gameOver = false;
     this.levelComplete = false;
+    this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
     this._buildMaze();
     this._configureLevel();
@@ -237,27 +242,41 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.lastDirection = 1;
     this.isPlayerMoving = false;
 
-    const scale = (CELL_SIZE * 1.5) / 430;
-    const { x, y } = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const scale = getCharacterCellScale(this.playerCharacter, CELL_SIZE);
+    const cellCenter = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
+      cellCenter.x,
+      cellCenter.y,
+      CELL_SIZE,
+    );
 
-    this.playerSprite = this.add.sprite(x, y, "player-girl", 0);
-    this.playerSprite.setScale(scale);
+    this.playerSprite = this.add.sprite(
+      x,
+      y,
+      this.playerCharacter.textureKey,
+      this.playerCharacter.idleFrame,
+    );
+    applyCharacterSpriteLayout(this.playerSprite, this.playerCharacter, scale);
     this.playerSprite.setDepth(PLAYER_DEPTH);
-    this.playerSprite.setFrame(0);
+    this._setPlayerIdle();
   }
 
   _createPlayerAnimation() {
-    if (!this.anims.exists("player-walk")) {
-      this.anims.create({
-        key: "player-walk",
-        frames: this.anims.generateFrameNumbers("player-girl", {
-          start: 0,
-          end: 11,
-        }),
-        frameRate: 10,
-        repeat: -1,
-      });
+    createCharacterWalkAnimation(this, this.playerCharacter, "player-walk");
+  }
+
+  _setPlayerIdle() {
+    if (!this.playerSprite) return;
+    if (this.playerSprite.anims.isPlaying) {
+      this.playerSprite.anims.stop();
     }
+    this.playerSprite.setFrame(this.playerCharacter.idleFrame);
+  }
+
+  _setPlayerRunning() {
+    if (!this.playerSprite) return;
+    this.playerSprite.play("player-walk", true);
   }
 
   _setupInput() {
@@ -333,22 +352,27 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _drawPlayer() {
-    const { x, y } = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const cellCenter = this._cellCenter(this.playerPos.r, this.playerPos.c);
+    const { x, y } = getCharacterRenderPosition(
+      this.playerCharacter,
+      cellCenter.x,
+      cellCenter.y,
+      CELL_SIZE,
+    );
     this.playerSprite.setPosition(x, y);
   }
 
   _playWalkAnimation() {
     this.isPlayerMoving = true;
-    this.playerSprite.play("player-walk");
+    this._setPlayerRunning();
 
     if (this.playerMoveTimer) {
       this.playerMoveTimer.remove(false);
     }
 
-    this.playerMoveTimer = this.time.delayedCall(300, () => {
+    this.playerMoveTimer = this.time.delayedCall(280, () => {
       this.isPlayerMoving = false;
-      this.playerSprite.stop();
-      this.playerSprite.setFrame(0);
+      this._setPlayerIdle();
     });
   }
 

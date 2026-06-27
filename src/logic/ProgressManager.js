@@ -7,80 +7,110 @@ const MAX_XP = 500;
 const TOTAL_LEVELS = 5;
 
 export default class ProgressManager {
-  /**
-   * Get the set of completed level numbers from localStorage.
-   * @returns {Set<number>}
-   */
-  static getCompletedLevels() {
+  static _getState() {
+    const defaultState = {
+      completed: [],
+      spentXP: 0,
+      selectedCharacter: "maicha",
+      unlockedCharacters: ["maicha"],
+    };
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return new Set();
+      if (!raw) return defaultState;
+
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return new Set();
-      return new Set(parsed.filter((n) => Number.isInteger(n) && n >= 1 && n <= TOTAL_LEVELS));
+      if (Array.isArray(parsed)) {
+        // Migrate old array format
+        defaultState.completed = parsed.filter(n => Number.isInteger(n) && n >= 1 && n <= TOTAL_LEVELS);
+        return defaultState;
+      }
+
+      if (parsed && typeof parsed === "object") {
+        const state = { ...defaultState, ...parsed };
+        if (!state.unlockedCharacters.includes(state.selectedCharacter)) {
+          state.selectedCharacter = "maicha";
+        }
+        return state;
+      }
+      return defaultState;
     } catch {
-      return new Set();
+      return defaultState;
     }
   }
 
-  /**
-   * Mark a level as completed and persist to localStorage.
-   * @param {number} level
-   */
+  static _saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  static getCompletedLevels() {
+    return new Set(ProgressManager._getState().completed);
+  }
+
   static completeLevel(level) {
-    const completed = ProgressManager.getCompletedLevels();
+    const state = ProgressManager._getState();
+    const completed = new Set(state.completed);
     completed.add(level);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...completed]));
+    state.completed = [...completed];
+    ProgressManager._saveState(state);
   }
 
-  /**
-   * Get the current XP based on completed levels.
-   * @returns {number}
-   */
   static getXP() {
-    return Math.min(ProgressManager.getCompletedLevels().size * XP_PER_LEVEL, MAX_XP);
+    const state = ProgressManager._getState();
+    const earnedXP = Math.min(state.completed.length * XP_PER_LEVEL, MAX_XP);
+    return Math.max(0, earnedXP - state.spentXP);
   }
 
-  /**
-   * Get the maximum possible XP.
-   * @returns {number}
-   */
-  static getMaxXP() {
-    return MAX_XP;
+  static deductXP(amount) {
+    const state = ProgressManager._getState();
+    const currentXP = ProgressManager.getXP();
+    if (currentXP >= amount) {
+      state.spentXP += amount;
+      ProgressManager._saveState(state);
+      return true;
+    }
+    return false;
   }
 
-  /**
-   * Get the XP earned per level.
-   * @returns {number}
-   */
-  static getXPPerLevel() {
-    return XP_PER_LEVEL;
-  }
+  static getMaxXP() { return MAX_XP; }
+  static getXPPerLevel() { return XP_PER_LEVEL; }
 
-  /**
-   * Get the next level to play (first uncompleted level, or 1 if none completed).
-   * @returns {number}
-   */
   static getNextLevel() {
     const completed = ProgressManager.getCompletedLevels();
     for (let i = 1; i <= TOTAL_LEVELS; i++) {
       if (!completed.has(i)) return i;
     }
-    // All levels completed — return level 1 (replay from start)
     return 1;
   }
 
-  /**
-   * Check if all levels are completed.
-   * @returns {boolean}
-   */
   static isAllCompleted() {
     return ProgressManager.getCompletedLevels().size >= TOTAL_LEVELS;
   }
 
-  /**
-   * Reset all progress (for debugging or restart).
-   */
+  static unlockCharacter(id) {
+    const state = ProgressManager._getState();
+    if (!state.unlockedCharacters.includes(id)) {
+      state.unlockedCharacters.push(id);
+      ProgressManager._saveState(state);
+    }
+  }
+
+  static isCharacterUnlocked(id) {
+    return ProgressManager._getState().unlockedCharacters.includes(id);
+  }
+
+  static selectCharacter(id) {
+    if (ProgressManager.isCharacterUnlocked(id)) {
+      const state = ProgressManager._getState();
+      state.selectedCharacter = id;
+      ProgressManager._saveState(state);
+    }
+  }
+
+  static getSelectedCharacter() {
+    return ProgressManager._getState().selectedCharacter;
+  }
+
   static reset() {
     localStorage.removeItem(STORAGE_KEY);
   }

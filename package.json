@@ -12,6 +12,7 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "jimp": "^1.6.1",
     "phaser": "^4.1.0"
   }
 }
