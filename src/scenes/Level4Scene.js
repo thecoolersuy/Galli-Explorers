@@ -2,8 +2,11 @@ import BaseMazeScene from "./BaseMazeScene.js";
 import MazeKey from "../sprites/MazeKey.js";
 import LockedGate from "../sprites/LockedGate.js";
 import RathObstacle from "../sprites/RathObstacle.js";
+import MazeCollectible from "../sprites/MazeCollectible.js";
 import Phaser from "phaser";
 import audio from "../styles/audio.js";
+
+const TOTAL_COLLECTIBLES = 3;
 
 export default class Level4Scene extends BaseMazeScene {
   constructor() {
@@ -21,10 +24,18 @@ export default class Level4Scene extends BaseMazeScene {
       "rath",
       new URL("../assets/img/rathbrown.png", import.meta.url).href,
     );
+    this.load.image(
+      "yomari",
+      new URL("../assets/img/yomari.png", import.meta.url).href,
+    );
 
     this.load.audio(
       "rath-dhim",
       new URL("../assets/audio/rath-dhim.wav", import.meta.url).href,
+    );
+    this.load.audio(
+      "collect-yomari",
+      new URL("../assets/audio/collect-yomari.wav", import.meta.url).href,
     );
   }
 
@@ -62,41 +73,327 @@ export default class Level4Scene extends BaseMazeScene {
         }),
     );
 
+    this.collectedCount = 0;
+    this._chooseCollectibleCells();
+    this._setupCollectiblesHUD();
+
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
       volume: 0,
+    });
+
+    this.collectSound = this.sound.add("collect-yomari", {
+      volume: 0.45,
     });
 
     this.currentRathVolume = 0;
     this.rathSound.play();
   }
 
+  _setupCollectiblesHUD() {
+    const hudX = this.scale.width - 100;
+    const hudY = 30;
+
+    this.hudGfx = this.add.graphics();
+    this.hudGfx.setDepth(99);
+    this._drawHudPill(hudX, hudY);
+
+    this.collectiblesText = this.add
+      .text(
+        hudX,
+        hudY,
+        `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`,
+        {
+          fontFamily: "EarlyGameBoy",
+          fontSize: "14px",
+          color: "#f5f0e6",
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(100);
+  }
+
+  _drawHudPill(cx, cy, alpha = 0.92) {
+    const w = 140;
+    const h = 38;
+    const r = 19;
+    const x = cx - w / 2;
+    const y = cy - h / 2;
+
+    this.hudGfx.clear();
+    this.hudGfx.fillStyle(0x6d4c2b, alpha);
+    this.hudGfx.fillRoundedRect(x, y, w, h, r);
+    this.hudGfx.lineStyle(2, 0x8b7355, 1);
+    this.hudGfx.strokeRoundedRect(x, y, w, h, r);
+  }
+
+  _updateCollectiblesHUD() {
+    this.collectiblesText.setText(
+      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
+    );
+  }
+
+  _showCollectNotification() {
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 - 100;
+
+    const notification = this.add
+      .text(centerX, centerY, "🍢 YOMARI COLLECTED! 🍢", {
+        fontFamily: "EarlyGameBoy",
+        fontSize: "24px",
+        color: "#f5f0e6",
+        backgroundColor: "#6d4c2b",
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setDepth(150)
+      .setAlpha(1);
+
+    this.tweens.add({
+      targets: notification,
+      y: centerY - 40,
+      alpha: 0,
+      duration: 1500,
+      ease: "Cubic.easeOut",
+      onComplete: () => notification.destroy(),
+    });
+  }
+
+  _showAllCollectedNotification() {
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 - 100;
+
+    const notification = this.add
+      .text(centerX, centerY, "All yomari collected!\nNow find the key!", {
+        fontFamily: "EarlyGameBoy",
+        fontSize: "20px",
+        color: "#f5f0e6",
+        backgroundColor: "#3a6b2b",
+        padding: { x: 16, y: 8 },
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setDepth(150)
+      .setAlpha(1);
+
+    this.tweens.add({
+      targets: notification,
+      y: centerY - 40,
+      alpha: 0,
+      duration: 2500,
+      ease: "Cubic.easeOut",
+      onComplete: () => notification.destroy(),
+    });
+  }
+
+  _chooseCollectibleCells() {
+    const reachable = [];
+    const visited = new Set();
+    const queue = [{ r: 0, c: 0 }];
+
+    while (queue.length > 0) {
+      const { r, c } = queue.shift();
+      const key = `${r},${c}`;
+
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      reachable.push({ r, c });
+
+      const cell = this.grid[r * this.ncols + c];
+
+      if (!cell.walls[0] && r > 0) queue.push({ r: r - 1, c });
+      if (!cell.walls[1] && c < this.ncols - 1) queue.push({ r, c: c + 1 });
+      if (!cell.walls[2] && r < this.nrows - 1) queue.push({ r: r + 1, c });
+      if (!cell.walls[3] && c > 0) queue.push({ r, c: c - 1 });
+    }
+
+    const candidates = reachable.filter(
+      ({ r, c }) =>
+        !(r === 0 && c === 0) &&
+        !(r === this.nrows - 1 && c === this.ncols - 1) &&
+        !this._isGateCell(r, c) &&
+        !this._isKeyCell(r, c) &&
+        !this._isNearObstacle(r, c)
+    );
+
+    Phaser.Utils.Array.Shuffle(candidates);
+
+    this.collectibles = candidates
+      .slice(0, TOTAL_COLLECTIBLES)
+      .map(
+        (cell, index) =>
+          new MazeCollectible(this, {
+            r: cell.r,
+            c: cell.c,
+            id: `collectible-${index}`,
+          })
+      );
+  }
+
+  _isNearObstacle(r, c) {
+    for (const route of this.rathRoutes) {
+      for (const pos of route) {
+        const dist = Math.abs(pos.r - r) + Math.abs(pos.c - c);
+        if (dist <= 4) return true;
+      }
+    }
+    return false;
+  }
+
+  _emitCollectibleProgress() {
+    const uiScene = this.scene.get("UIScene");
+    if (uiScene) {
+      uiScene.events.emit(
+        "collectiblesChanged",
+        this.collectedCount,
+        TOTAL_COLLECTIBLES,
+      );
+    }
+  }
+
+  _canEnterCell(fromCell, toCell) {
+    if (!this.gate) return true;
+    if (!this.gate.locked) return true;
+    if (this.gate.blocksMove(fromCell, toCell)) return false;
+    return true;
+  }
+
+  _afterPlayerMove(_fromCell, _toCell) {
+    const { r, c } = this.playerPos;
+
+    // Check yomari collection
+    for (const collectible of this.collectibles) {
+      if (!collectible.matchesCell(r, c)) continue;
+
+      if (collectible.collect()) {
+        this.collectedCount++;
+        this.collectSound.play();
+        this._showCollectNotification();
+        this._updateCollectiblesHUD();
+        this._emitCollectibleProgress();
+
+        if (this.collectedCount === TOTAL_COLLECTIBLES) {
+          this._showAllCollectedNotification();
+        }
+      }
+    }
+
+    // Check key collection
+    if (this.key && !this.key.collected && this.key.cell.r === r && this.key.cell.c === c) {
+      this.hasKey = this.key.collect();
+    }
+
+    // Open gate once key is picked up
+    if (this.hasKey && this.gate && this.gate.locked) {
+      this.gate.open();
+    }
+  }
+
+  _updateLevel(time) {
+    if (!this.rathObstacles?.length) return;
+
+    let hitPlayer = false;
+
+    for (const obstacle of this.rathObstacles) {
+      obstacle.update(time);
+
+      if (
+        obstacle.currentCell.r === this.playerPos.r &&
+        obstacle.currentCell.c === this.playerPos.c
+      ) {
+        hitPlayer = true;
+      }
+    }
+
+    this._updateRathSound();
+
+    if (hitPlayer) {
+      this._triggerGameOver("You were hit by the jatra crowd!");
+    }
+  }
+
+  _updateRathSound() {
+    if (!this.rathSound) return;
+
+    let minDist = Infinity;
+
+    for (const obstacle of this.rathObstacles) {
+      const dist =
+        Math.abs(this.playerPos.r - obstacle.currentCell.r) +
+        Math.abs(this.playerPos.c - obstacle.currentCell.c);
+
+      if (dist < minDist) {
+        minDist = dist;
+      }
+    }
+
+    const { maxHearDist, maxVolume, smoothing } = audio.rath;
+
+    const proximity = Phaser.Math.Clamp(
+      1 - minDist / maxHearDist,
+      0,
+      1,
+    );
+
+    const eased = proximity * proximity * (3 - 2 * proximity);
+    const targetVolume = eased * maxVolume;
+
+    this.currentRathVolume = Phaser.Math.Linear(
+      this.currentRathVolume,
+      targetVolume,
+      smoothing,
+    );
+
+    this.rathSound.setVolume(this.currentRathVolume);
+  }
+
+  _isHazardAt(r, c) {
+    return this.rathObstacles
+      ? this.rathObstacles.some((rath) => rath.occupiesCell(r, c))
+      : false;
+  }
+
+  _isGateCell(r, c) {
+    if (!this.gateEdge) return false;
+
+    return (
+      (this.gateEdge.a.r === r && this.gateEdge.a.c === c) ||
+      (this.gateEdge.b.r === r && this.gateEdge.b.c === c)
+    );
+  }
+
+  _isKeyCell(r, c) {
+    return this.keyCell?.r === r && this.keyCell?.c === c;
+  }
+
+  _isRathRouteCellAllowed(r, c) {
+    return (
+      r > 0 &&
+      c > 0 &&
+      r < this.nrows - 1 &&
+      c < this.ncols - 1 &&
+      !(r === 0 && c === 0) &&
+      !(r === this.nrows - 1 && c === this.ncols - 1) &&
+      !this._isGateCell(r, c) &&
+      !this._isKeyCell(r, c)
+    );
+  }
+
+  _stopLevelAudio() {
+    if (this.rathSound) {
+      this.rathSound.stop();
+    }
+  }
+
   _configureRathRoutes() {
     const anchors = [
-      {
-        r: Math.floor(this.nrows * 0.22),
-        c: Math.floor(this.ncols * 0.28),
-      },
-      {
-        r: Math.floor(this.nrows * 0.50),
-        c: Math.floor(this.ncols * 0.72),
-      },
-      {
-        r: Math.floor(this.nrows * 0.72),
-        c: Math.floor(this.ncols * 0.40),
-      },
-      {
-        r: Math.floor(this.nrows * 0.32),
-        c: Math.floor(this.ncols * 0.78),
-      },
-      {
-        r: Math.floor(this.nrows * 0.66),
-        c: Math.floor(this.ncols * 0.22),
-      },
-      {
-        r: Math.floor(this.nrows * 0.78),
-        c: Math.floor(this.ncols * 0.68),
-      },
+      { r: Math.floor(this.nrows * 0.22), c: Math.floor(this.ncols * 0.28) },
+      { r: Math.floor(this.nrows * 0.50), c: Math.floor(this.ncols * 0.72) },
+      { r: Math.floor(this.nrows * 0.72), c: Math.floor(this.ncols * 0.40) },
+      { r: Math.floor(this.nrows * 0.32), c: Math.floor(this.ncols * 0.78) },
+      { r: Math.floor(this.nrows * 0.66), c: Math.floor(this.ncols * 0.22) },
+      { r: Math.floor(this.nrows * 0.78), c: Math.floor(this.ncols * 0.68) },
     ];
 
     const routes = [];
@@ -104,12 +401,7 @@ export default class Level4Scene extends BaseMazeScene {
     for (const { r, c } of anchors) {
       if (routes.length >= 3) break;
 
-      if (
-        r < 2 ||
-        c < 2 ||
-        r >= this.nrows - 2 ||
-        c >= this.ncols - 2
-      ) {
+      if (r < 2 || c < 2 || r >= this.nrows - 2 || c >= this.ncols - 2) {
         continue;
       }
 
@@ -206,117 +498,6 @@ export default class Level4Scene extends BaseMazeScene {
     }
   }
 
-  _isHazardAt(r, c) {
-    return this.rathObstacles
-      ? this.rathObstacles.some((rath) => rath.occupiesCell(r, c))
-      : false;
-  }
-
-  _updateRathSound() {
-    if (!this.rathSound) return;
-
-    let minDist = Infinity;
-
-    for (const obstacle of this.rathObstacles) {
-      const dist =
-        Math.abs(this.playerPos.r - obstacle.currentCell.r) +
-        Math.abs(this.playerPos.c - obstacle.currentCell.c);
-
-      if (dist < minDist) {
-        minDist = dist;
-      }
-    }
-
-    const { maxHearDist, maxVolume, smoothing } = audio.rath;
-
-    const proximity = Phaser.Math.Clamp(
-      1 - minDist / maxHearDist,
-      0,
-      1,
-    );
-
-    const eased = proximity * proximity * (3 - 2 * proximity);
-
-    const targetVolume = eased * maxVolume;
-
-    this.currentRathVolume = Phaser.Math.Linear(
-      this.currentRathVolume,
-      targetVolume,
-      smoothing,
-    );
-
-    this.rathSound.setVolume(this.currentRathVolume);
-  }
-
-  _canEnterCell(fromCell, toCell) {
-    return !this.gate || !this.gate.blocksMove(fromCell, toCell);
-  }
-
-  _afterPlayerMove(_fromCell, toCell) {
-    if (this.key && this.key.matchesCell(toCell.r, toCell.c)) {
-      this.hasKey = this.key.collect();
-    }
-
-    if (this.hasKey && this.gate && this.gate.locked) {
-      this.gate.open();
-    }
-  }
-
-  _updateLevel(time) {
-    if (!this.rathObstacles?.length) return;
-
-    let hitPlayer = false;
-
-    for (const obstacle of this.rathObstacles) {
-      obstacle.update(time);
-
-      if (
-        obstacle.currentCell.r === this.playerPos.r &&
-        obstacle.currentCell.c === this.playerPos.c
-      ) {
-        hitPlayer = true;
-      }
-    }
-
-    this._updateRathSound(); // Sound volume increases as raths get closer
-
-    if (hitPlayer) {
-      this._triggerGameOver("You were hit by the jatra crowd!");
-    }
-  }
-
-  _isGateCell(r, c) {
-    if (!this.gateEdge) return false;
-
-    return (
-      (this.gateEdge.a.r === r && this.gateEdge.a.c === c) ||
-      (this.gateEdge.b.r === r && this.gateEdge.b.c === c)
-    );
-  }
-
-  _isKeyCell(r, c) {
-    return this.keyCell?.r === r && this.keyCell?.c === c;
-  }
-
-  _isRathRouteCellAllowed(r, c) {
-    return (
-      r > 0 &&
-      c > 0 &&
-      r < this.nrows - 1 &&
-      c < this.ncols - 1 &&
-      !(r === 0 && c === 0) &&
-      !(r === this.nrows - 1 && c === this.ncols - 1) &&
-      !this._isGateCell(r, c) &&
-      !this._isKeyCell(r, c)
-    );
-  }
-
-  _stopLevelAudio() {
-    if (this.rathSound) {
-      this.rathSound.stop();
-    }
-  }
-
   _chooseKeyCell(gateEdge) {
     const reachable = this._getReachableCells({ r: 0, c: 0 }, gateEdge);
 
@@ -350,7 +531,6 @@ export default class Level4Scene extends BaseMazeScene {
         Math.abs(cell.c - gateEdge.a.c);
 
       const startDist = Math.abs(cell.r) + Math.abs(cell.c);
-
       const score = startDist + gateDist;
 
       if (score > bestScore) {
