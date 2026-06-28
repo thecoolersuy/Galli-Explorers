@@ -10,6 +10,7 @@ import {
   getCharacterConfig,
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
+import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -89,6 +90,10 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (!this.gameOver && !this.levelComplete) {
+      this._processHeldMovement(time);
+    }
+
     if (this.gameOver || this.levelComplete) return;
 
     this._updateLevel(time, delta);
@@ -280,11 +285,13 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _setupInput() {
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+    setupHeldKeyInput(this);
+  }
 
-    this.input.keyboard.on("keydown", (event) => {
-      this._handleMove(event.key);
+  _processHeldMovement(time) {
+    processHeldMovement(this, time, (key) => this._handleMove(key), {
+      setPlayerRunning: () => this._setPlayerRunning(),
+      setPlayerIdle: () => this._setPlayerIdle(),
     });
   }
 
@@ -365,15 +372,6 @@ export default class BaseMazeScene extends Phaser.Scene {
   _playWalkAnimation() {
     this.isPlayerMoving = true;
     this._setPlayerRunning();
-
-    if (this.playerMoveTimer) {
-      this.playerMoveTimer.remove(false);
-    }
-
-    this.playerMoveTimer = this.time.delayedCall(280, () => {
-      this.isPlayerMoving = false;
-      this._setPlayerIdle();
-    });
   }
 
   _playFootstepSound() {

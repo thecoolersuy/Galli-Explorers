@@ -12,6 +12,7 @@ import {
   getCharacterConfig,
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
+import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -660,11 +661,13 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _setupInput() {
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+    setupHeldKeyInput(this);
+  }
 
-    this.input.keyboard.on("keydown", (event) => {
-      this._handleMove(event.key);
+  _processHeldMovement(time) {
+    processHeldMovement(this, time, (key) => this._handleMove(key), {
+      setPlayerRunning: () => this._setPlayerRunning(),
+      setPlayerIdle: () => this._setPlayerIdle(),
     });
   }
 
@@ -698,6 +701,10 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   update(time) {
+    if (!this.gameOver) {
+      this._processHeldMovement(time);
+    }
+
     if (this.gameOver) return;
 
     if (!this.obstacles.length) {
@@ -779,6 +786,7 @@ export default class Level2Scene extends Phaser.Scene {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
       this._playFootstepSound();
+      this._setPlayerRunning();
 
       for (const collectible of this.collectibles) {
         if (!collectible.matchesCell(nr, nc)) continue;
@@ -791,17 +799,6 @@ export default class Level2Scene extends Phaser.Scene {
           this._emitCollectibleProgress();
         }
       }
-
-      this.isPlayerMoving = true;
-      this._setPlayerRunning();
-
-      if (this.playerMoveTimer) {
-        this.playerMoveTimer.remove(false);
-      }
-      this.playerMoveTimer = this.time.delayedCall(280, () => {
-        this.isPlayerMoving = false;
-        this._setPlayerIdle();
-      });
 
       this._updateFlashlight();
       this._checkWin();
