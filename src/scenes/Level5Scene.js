@@ -79,7 +79,6 @@ export default class Level5Scene extends BaseMazeScene {
 
     this.collectedCount = 0;
     this._chooseCollectibleCells();
-    this._setupCollectiblesHUD();
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -132,9 +131,15 @@ export default class Level5Scene extends BaseMazeScene {
   }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
+  }
+
+  _getUiData() {
+    return {
+      level: 5,
+      totalCollectibles: TOTAL_COLLECTIBLES,
+      totalKeys: TOTAL_KEYS,
+    };
   }
 
   _showCollectNotification() {
@@ -451,13 +456,6 @@ export default class Level5Scene extends BaseMazeScene {
       cell1.walls[0] = false;
       cell2.walls[2] = false;
     }
-  }
-
-  _getUiData() {
-    return {
-      level: 5,
-      totalKeys: TOTAL_KEYS,
-    };
   }
 
   _emitKeyProgress() {

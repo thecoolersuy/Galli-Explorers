@@ -13,6 +13,7 @@ import {
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
+import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -77,6 +78,7 @@ export default class Level1Scene extends Phaser.Scene {
     this.offsetY = Math.floor((this.scale.height - this.nrows * CELL_SIZE) / 2);
 
     this.gameOver = false;
+    this.levelComplete = false;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
@@ -109,8 +111,6 @@ export default class Level1Scene extends Phaser.Scene {
     this.collectSound = this.sound.add("collect-yomari", {
       volume: 0.45,
     });
-
-    this._setupCollectiblesHUD();
 
     this.rathSound.play();
   }
@@ -168,9 +168,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
 }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `🍢 ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
   }
 
   _showCollectNotification() {
@@ -631,11 +629,11 @@ _drawHudPill(cx, cy, alpha = 0.92) {
   }
 
   update(time) {
-    if (!this.gameOver) {
+    if (!this.gameOver && !this.levelComplete) {
       this._processHeldMovement(time);
     }
 
-    if (this.gameOver || !this.obstacles.length) return;
+    if (this.gameOver || this.levelComplete || !this.obstacles.length) return;
 
     let hitPlayer = false;
 
@@ -785,7 +783,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     retryBtn.on("pointerdown", () => {
       this.scene.stop("UIScene");
       this.scene.restart();
-      this.scene.launch("UIScene", { level: 1 });
+      this.scene.launch("UIScene", { level: 1, totalCollectibles: TOTAL_COLLECTIBLES });
     });
 
     exitBtn.on("pointerdown", () => {
@@ -828,6 +826,17 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     this._showGameOverButtons();
   }
 
+  _getCompletionStats() {
+    const uiScene = this.scene.get("UIScene");
+    const elapsedMs = uiScene?.stopTimer?.() ?? 0;
+
+    return {
+      elapsedMs,
+      yomariCollected: this.collectedCount,
+      totalYomari: TOTAL_COLLECTIBLES,
+    };
+  }
+
   _checkWin() {
     const { r, c } = this.playerPos;
     const { nrows, ncols } = this;
@@ -836,35 +845,24 @@ _drawHudPill(cx, cy, alpha = 0.92) {
       return;
     }
 
+    if (this.levelComplete) return;
+
+    this.levelComplete = true;
+
     if (this.rathSound) {
       this.rathSound.stop();
     }
 
     ProgressManager.completeLevel(1);
-
     this.levelCompletedSound.play();
-
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        "🎉 You reached home!",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "36px",
-          color: colors.light,
-          backgroundColor: colors.deep,
-          padding: { x: 20, y: 10 },
-        }
-      )
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this.time.delayedCall(2200, () => {
-      this.scene.stop("UIScene");
-      this.scene.start("LevelIntroScene", { level: 2 });
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      onContinue: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("LevelIntroScene", { level: 2 });
+      },
     });
   }
 

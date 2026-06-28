@@ -11,6 +11,7 @@ import {
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
+import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -116,7 +117,22 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _getUiData() {
-    return { level: this.levelNumber };
+    return {
+      level: this.levelNumber,
+      totalCollectibles: 3,
+      totalKeys: 0,
+    };
+  }
+
+  _getCompletionStats() {
+    const uiScene = this.scene.get("UIScene");
+    const elapsedMs = uiScene?.stopTimer?.() ?? 0;
+
+    return {
+      elapsedMs,
+      yomariCollected: this.collectedCount ?? 0,
+      totalYomari: 3,
+    };
   }
 
   _buildMaze() {
@@ -464,19 +480,9 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(this.scale.width / 2, this.scale.height / 2 - 50, "YOU REACHED HOME!", {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "34px",
-        color: colors.light,
-        backgroundColor: colors.deep,
-        padding: { x: 20, y: 10 },
-      })
-      .setOrigin(0.5)
-      .setDepth(MESSAGE_DEPTH);
-
-    this.time.delayedCall(1400, () => {
-      this._showVictoryButtons();
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      onContinue: () => this._showVictoryButtons(),
     });
   }
 

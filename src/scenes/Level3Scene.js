@@ -93,7 +93,6 @@ export default class Level3Scene extends BaseMazeScene {
 
     this.collectedCount = 0;
     this._chooseCollectibleCells();
-    this._setupCollectiblesHUD();
 
     this.playerHasMoved = false;
     this.isChasing = false;
@@ -150,9 +149,7 @@ export default class Level3Scene extends BaseMazeScene {
   }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
   }
 
   _showCollectNotification() {

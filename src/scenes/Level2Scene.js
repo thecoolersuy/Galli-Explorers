@@ -13,6 +13,7 @@ import {
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
+import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -89,6 +90,7 @@ export default class Level2Scene extends Phaser.Scene {
     this.offsetY = Math.floor((this.scale.height - this.nrows * CELL_SIZE) / 2);
 
     this.gameOver = false;
+    this.levelComplete = false;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
@@ -100,7 +102,6 @@ export default class Level2Scene extends Phaser.Scene {
     this._setupPlayer();
     this._setupFlashlight();
     this._setupInput();
-    this._setupCollectiblesHUD();
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -167,9 +168,7 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
   }
 
   _showCollectNotification() {
@@ -701,11 +700,11 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   update(time) {
-    if (!this.gameOver) {
+    if (!this.gameOver && !this.levelComplete) {
       this._processHeldMovement(time);
     }
 
-    if (this.gameOver) return;
+    if (this.gameOver || this.levelComplete) return;
 
     if (!this.obstacles.length) {
       this._updateFlashlight();
@@ -864,7 +863,7 @@ export default class Level2Scene extends Phaser.Scene {
     retryBtn.on("pointerdown", () => {
       this.scene.stop("UIScene");
       this.scene.restart();
-      this.scene.launch("UIScene", { level: 2 });
+      this.scene.launch("UIScene", { level: 2, totalCollectibles: TOTAL_COLLECTIBLES });
     });
 
     exitBtn.on("pointerdown", () => {
@@ -907,42 +906,45 @@ export default class Level2Scene extends Phaser.Scene {
     this._showGameOverButtons();
   }
 
+  _getCompletionStats() {
+    const uiScene = this.scene.get("UIScene");
+    const elapsedMs = uiScene?.stopTimer?.() ?? 0;
+
+    return {
+      elapsedMs,
+      yomariCollected: this.collectedCount,
+      totalYomari: TOTAL_COLLECTIBLES,
+    };
+  }
+
   _checkWin() {
     const { r, c } = this.playerPos;
     const { nrows, ncols } = this;
 
-    if (r === nrows - 1 && c === ncols - 1) {
-      if (this.rathSound) {
-        this.rathSound.stop();
-      }
-
-      ProgressManager.completeLevel(2);
-
-      if (this.levelCompletedSound) {
-        this.levelCompletedSound.play();
-      }
-
-      this.input.keyboard.removeAllListeners();
-      this.add
-        .text(
-          this.scale.width / 2,
-          this.scale.height / 2 - 50,
-          "🎉 You reached home!",
-          {
-            fontFamily: "EarlyGameBoy",
-            fontSize: "36px",
-            color: colors.light,
-            backgroundColor: colors.deep,
-            padding: { x: 20, y: 10 },
-          },
-        )
-        .setOrigin(0.5)
-        .setDepth(MESSAGE_DEPTH);
-
-      this.time.delayedCall(2200, () => {
-        this._showVictoryButtons();
-      });
+    if (r !== nrows - 1 || c !== ncols - 1) {
+      return;
     }
+
+    if (this.levelComplete) return;
+
+    this.levelComplete = true;
+
+    if (this.rathSound) {
+      this.rathSound.stop();
+    }
+
+    ProgressManager.completeLevel(2);
+
+    if (this.levelCompletedSound) {
+      this.levelCompletedSound.play();
+    }
+
+    this.input.keyboard.removeAllListeners();
+
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      onContinue: () => this._showVictoryButtons(),
+    });
   }
 
   _showVictoryButtons() {

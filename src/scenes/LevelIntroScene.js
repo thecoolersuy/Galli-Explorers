@@ -137,6 +137,7 @@ export default class LevelIntroScene extends Phaser.Scene {
         this.scene.launch("UIScene", {
           level: levelNum,
           totalKeys: intro.totalKeys || 0,
+          totalCollectibles: 3,
         });
       },
     });
