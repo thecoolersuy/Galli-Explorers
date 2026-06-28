@@ -4,6 +4,7 @@ import MazeGenerator from "../logic/MazeGenerator.js";
 import colors from "../styles/colors.js";
 import audio from "../styles/audio.js";
 import ProgressManager from "../logic/ProgressManager.js";
+import MazeCollectible from "../sprites/MazeCollectible.js";
 import {
   applyCharacterSpriteLayout,
   createCharacterWalkAnimation,
@@ -26,7 +27,7 @@ const OBSTACLE_ACCENT = colors.obstacleAccentNum;
 const OBSTACLE_MOVE_MS = 380;
 const DARKNESS_COLOR = "rgba(3, 4, 8, 0.90)";
 const TORCH_RADIUS = 130;
-const PIXEL_BLOCK = 16; // size of each pixel block in the torch
+const PIXEL_BLOCK = 16;
 const MAZE_DEPTH = 0;
 const WALL_DEPTH = 10;
 const GOAL_DEPTH = 15;
@@ -34,6 +35,7 @@ const OBSTACLE_DEPTH = 20;
 const DARKNESS_DEPTH = 50;
 const PLAYER_DEPTH = 60;
 const MESSAGE_DEPTH = 80;
+const TOTAL_COLLECTIBLES = 3;
 
 let darknessTextureId = 0;
 
@@ -86,15 +88,18 @@ export default class Level2Scene extends Phaser.Scene {
     this.offsetY = Math.floor((this.scale.height - this.nrows * CELL_SIZE) / 2);
 
     this.gameOver = false;
+    this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
     this._buildMaze();
     this._placeObstacles();
+    this._chooseCollectibleCells();
     this._drawMaze();
     this._createPlayerAnimation();
     this._setupPlayer();
     this._setupFlashlight();
     this._setupInput();
+    this._setupCollectiblesHUD();
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -114,7 +119,84 @@ export default class Level2Scene extends Phaser.Scene {
       volume: 1,
     });
 
+    this.collectSound = this.sound.add("collect-yomari", {
+      volume: 0.45,
+    });
+
+    
+
     this.rathSound.play();
+  }
+
+  _setupCollectiblesHUD() {
+    const hudX = this.scale.width - 100;
+    const hudY = 30;
+
+    this.hudGfx = this.add.graphics();
+    this.hudGfx.setDepth(99);
+    this._drawHudPill(hudX, hudY);
+
+    this.collectiblesText = this.add
+      .text(
+        hudX,
+        hudY,
+        `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`,
+        {
+          fontFamily: "EarlyGameBoy",
+          fontSize: "14px",
+          color: "#f5f0e6",
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(100);
+  }
+
+  _drawHudPill(cx, cy, alpha = 0.92) {
+    const w = 140;
+    const h = 38;
+    const r = 19;
+    const x = cx - w / 2;
+    const y = cy - h / 2;
+
+    this.hudGfx.clear();
+    this.hudGfx.fillStyle(0x6d4c2b, alpha);
+    this.hudGfx.fillRoundedRect(x, y, w, h, r);
+    this.hudGfx.lineStyle(2, 0x8b7355, 1);
+    this.hudGfx.strokeRoundedRect(x, y, w, h, r);
+  }
+
+  _updateCollectiblesHUD() {
+    this.collectiblesText.setText(
+      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
+    );
+  }
+
+  _showCollectNotification() {
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 - 100;
+
+    const notification = this.add
+      .text(centerX, centerY, "🍢 YOMARI COLLECTED! 🍢", {
+        fontFamily: "EarlyGameBoy",
+        fontSize: "24px",
+        color: "#f5f0e6",
+        backgroundColor: "#6d4c2b",
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setDepth(150)
+      .setAlpha(1);
+
+    this.tweens.add({
+      targets: notification,
+      y: centerY - 40,
+      alpha: 0,
+      duration: 1500,
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        notification.destroy();
+      },
+    });
   }
 
   _buildMaze() {
@@ -240,6 +322,75 @@ export default class Level2Scene extends Phaser.Scene {
       cell1.walls[0] = false;
       cell2.walls[2] = false;
     }
+  }
+
+  _chooseCollectibleCells() {
+    const reachable = [];
+
+    const visited = new Set();
+    const queue = [{ r: 0, c: 0 }];
+
+    while (queue.length > 0) {
+      const { r, c } = queue.shift();
+      const key = `${r},${c}`;
+
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      reachable.push({ r, c });
+
+      const cell = this.grid[r * this.ncols + c];
+
+      if (!cell.walls[0] && r > 0)
+        queue.push({ r: r - 1, c });
+
+      if (!cell.walls[1] && c < this.ncols - 1)
+        queue.push({ r, c: c + 1 });
+
+      if (!cell.walls[2] && r < this.nrows - 1)
+        queue.push({ r: r + 1, c });
+
+      if (!cell.walls[3] && c > 0)
+        queue.push({ r, c: c - 1 });
+    }
+
+    const candidates = reachable.filter(
+      ({ r, c }) =>
+        !(r === 0 && c === 0) &&
+        !(r === this.nrows - 1 && c === this.ncols - 1) &&
+        !this._isNearObstacle(r, c)
+    );
+
+    Phaser.Utils.Array.Shuffle(candidates);
+
+    this.collectibles = candidates
+      .slice(0, TOTAL_COLLECTIBLES)
+      .map(
+        (cell, index) =>
+          new MazeCollectible(this, {
+            r: cell.r,
+            c: cell.c,
+            id: `collectible-${index}`,
+          })
+      );
+
+     this.collectibles.forEach((collectible) => {
+      collectible.sprite.setDepth(15);
+     });
+  }
+
+  _isNearObstacle(r, c) {
+    for (const obstacle of this.obstacles) {
+      for (const pos of obstacle.route) {
+        const dist = Math.abs(pos.r - r) + Math.abs(pos.c - c);
+
+        if (dist <= 4) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   _drawMaze() {
@@ -384,7 +535,7 @@ export default class Level2Scene extends Phaser.Scene {
 
   _setupPlayer() {
     this.playerPos = { r: 0, c: 0 };
-    this.lastDirection = 1; // 1 = right, -1 = left
+    this.lastDirection = 1;
     this.isPlayerMoving = false;
 
     const scale = getCharacterCellScale(this.playerCharacter, CELL_SIZE);
@@ -475,11 +626,9 @@ export default class Level2Scene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Snap circle center to block grid so border stays locked in place
     x = Math.round(x / B) * B;
     y = Math.round(y / B) * B;
 
-    // Fill entire canvas with darkness
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = DARKNESS_COLOR;
     ctx.fillRect(0, 0, W, H);
@@ -487,7 +636,6 @@ export default class Level2Scene extends Phaser.Scene {
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
 
-    // Build pixelated circular light area from square blocks
     const startCol = Math.floor((x - R) / B);
     const endCol = Math.ceil((x + R) / B);
     const startRow = Math.floor((y - R) / B);
@@ -595,7 +743,6 @@ export default class Level2Scene extends Phaser.Scene {
     let nc = c;
     let hitWall = false;
 
-    // Determine direction and update flip state
     if (key === "ArrowUp" || key === "w") {
       if (cell.walls[0]) hitWall = true;
       else nr--;
@@ -603,7 +750,7 @@ export default class Level2Scene extends Phaser.Scene {
       if (cell.walls[1]) hitWall = true;
       else {
         nc++;
-        this.lastDirection = 1; // Face right
+        this.lastDirection = 1;
         if (this.playerSprite) this.playerSprite.setFlipX(false);
       }
     } else if (key === "ArrowDown" || key === "s") {
@@ -613,7 +760,7 @@ export default class Level2Scene extends Phaser.Scene {
       if (cell.walls[3]) hitWall = true;
       else {
         nc--;
-        this.lastDirection = -1; // Face left
+        this.lastDirection = -1;
         if (this.playerSprite) this.playerSprite.setFlipX(true);
       }
     }
@@ -633,6 +780,18 @@ export default class Level2Scene extends Phaser.Scene {
       this._drawPlayer();
       this._playFootstepSound();
 
+      for (const collectible of this.collectibles) {
+        if (!collectible.matchesCell(nr, nc)) continue;
+
+        if (collectible.collect()) {
+          this.collectedCount++;
+          this.collectSound.play();
+          this._showCollectNotification();
+          this._updateCollectiblesHUD();
+          this._emitCollectibleProgress();
+        }
+      }
+
       this.isPlayerMoving = true;
       this._setPlayerRunning();
 
@@ -646,6 +805,17 @@ export default class Level2Scene extends Phaser.Scene {
 
       this._updateFlashlight();
       this._checkWin();
+    }
+  }
+
+  _emitCollectibleProgress() {
+    const uiScene = this.scene.get("UIScene");
+    if (uiScene) {
+      uiScene.events.emit(
+        "collectiblesChanged",
+        this.collectedCount,
+        TOTAL_COLLECTIBLES,
+      );
     }
   }
 

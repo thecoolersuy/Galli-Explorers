@@ -15,6 +15,19 @@ export default class BootScene extends Phaser.Scene {
       new URL("../assets/img/1.json", import.meta.url).href
     );
 
+    // Load yomari
+
+    this.load.image(
+    "yomari",
+    new URL("../assets/img/yomari.png", import.meta.url).href
+    );
+
+    this.load.audio(
+     "collect-yomari",
+      new URL("../assets/audio/yomaricollect.mp3", import.meta.url).href
+    );
+
+
     // Baucha sheet has 9 columns; keep the whole source height so the lower body is not clipped.
     this.load.spritesheet("player-boy", new URL("../assets/img/bauchasprite.png", import.meta.url).href, {
       frameWidth: 230,
