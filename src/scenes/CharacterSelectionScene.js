@@ -182,30 +182,32 @@ export default class CharacterSelectionScene extends Phaser.Scene {
     const nextLevel = ProgressManager.getNextLevel();
     const y = Math.min(this.scale.height - 88, this.cy + 230);
 
-    const playShadow = this.add.rectangle(this.cx + 6, y + 6, 210, 58, colors.deepNum);
-    const playBody = this.add.rectangle(this.cx, y, 210, 58, colors.darkNum);
-    const playInner = this.add.rectangle(this.cx, y, 202, 50, colors.deepNum);
+    const playBg = this.add.rectangle(this.cx, y, 210, 58, colors.accentNum);
     const playText = this.add
-      .text(this.cx, y, "PLAY >>>", {
+      .text(this.cx, y, "SELECT", {
         fontFamily: "EarlyGameBoy",
         fontSize: "18px",
-        color: colors.light,
+        color: colors.dark,
         align: "center",
       })
       .setOrigin(0.5);
 
-    playShadow.setDepth(1);
-    playBody.setDepth(2);
-    playInner.setDepth(3);
+    playBg.setDepth(2);
     playText.setDepth(4);
 
-    playBody.setInteractive({ useHandCursor: true });
-    playBody.on("pointerdown", () => {
+    playBg.setInteractive({ useHandCursor: true });
+    playBg.on("pointerdown", () => {
       ProgressManager.selectCharacter(this.selected);
       this.scene.start("LevelIntroScene", { level: nextLevel });
     });
-    playBody.on("pointerover", () => playBody.setScale(1.04));
-    playBody.on("pointerout", () => playBody.setScale(1));
+    playBg.on("pointerover", () => {
+      playBg.setFillStyle(colors.darkNum);
+      playText.setColor(colors.accent);
+    });
+    playBg.on("pointerout", () => {
+      playBg.setFillStyle(colors.accentNum);
+      playText.setColor(colors.dark);
+    });
 
     this.input.keyboard?.once("keydown-ENTER", () => {
       ProgressManager.selectCharacter(this.selected);

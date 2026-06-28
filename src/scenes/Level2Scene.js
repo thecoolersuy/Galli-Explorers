@@ -12,6 +12,9 @@ import {
   getCharacterConfig,
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
+import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
+import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
+import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -88,6 +91,8 @@ export default class Level2Scene extends Phaser.Scene {
     this.offsetY = Math.floor((this.scale.height - this.nrows * CELL_SIZE) / 2);
 
     this.gameOver = false;
+    this.levelComplete = false;
+    this.awaitingLevelStart = true;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
@@ -99,7 +104,6 @@ export default class Level2Scene extends Phaser.Scene {
     this._setupPlayer();
     this._setupFlashlight();
     this._setupInput();
-    this._setupCollectiblesHUD();
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -123,9 +127,13 @@ export default class Level2Scene extends Phaser.Scene {
       volume: 0.45,
     });
 
-    
+    // Start immediately — the intro screen already acted as the start button.
+    this.awaitingLevelStart = false;
+    this._beginLevel();
+  }
 
-    this.rathSound.play();
+  _beginLevel() {
+    this.rathSound?.play();
   }
 
   _setupCollectiblesHUD() {
@@ -166,9 +174,7 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
   }
 
   _showCollectNotification() {
@@ -660,11 +666,13 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _setupInput() {
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+    setupHeldKeyInput(this);
+  }
 
-    this.input.keyboard.on("keydown", (event) => {
-      this._handleMove(event.key);
+  _processHeldMovement(time) {
+    processHeldMovement(this, time, (key) => this._handleMove(key), {
+      setPlayerRunning: () => this._setPlayerRunning(),
+      setPlayerIdle: () => this._setPlayerIdle(),
     });
   }
 
@@ -698,7 +706,13 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   update(time) {
-    if (this.gameOver) return;
+    if (this.awaitingLevelStart) return;
+
+    if (!this.gameOver && !this.levelComplete) {
+      this._processHeldMovement(time);
+    }
+
+    if (this.gameOver || this.levelComplete) return;
 
     if (!this.obstacles.length) {
       this._updateFlashlight();
@@ -734,7 +748,7 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _handleMove(key) {
-    if (this.gameOver) return;
+    if (this.awaitingLevelStart || this.gameOver) return;
 
     const { r, c } = this.playerPos;
     const cell = this.grid[r * this.ncols + c];
@@ -779,6 +793,7 @@ export default class Level2Scene extends Phaser.Scene {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
       this._playFootstepSound();
+      this._setPlayerRunning();
 
       for (const collectible of this.collectibles) {
         if (!collectible.matchesCell(nr, nc)) continue;
@@ -791,17 +806,6 @@ export default class Level2Scene extends Phaser.Scene {
           this._emitCollectibleProgress();
         }
       }
-
-      this.isPlayerMoving = true;
-      this._setPlayerRunning();
-
-      if (this.playerMoveTimer) {
-        this.playerMoveTimer.remove(false);
-      }
-      this.playerMoveTimer = this.time.delayedCall(280, () => {
-        this.isPlayerMoving = false;
-        this._setPlayerIdle();
-      });
 
       this._updateFlashlight();
       this._checkWin();
@@ -840,47 +844,6 @@ export default class Level2Scene extends Phaser.Scene {
     );
   }
 
-  _showGameOverButtons() {
-    const centerX = this.scale.width / 2;
-    const centerY = this.scale.height / 2 + 80;
-
-    const buttonStyle = {
-      fontFamily: "EarlyGameBoy",
-      fontSize: "20px",
-      color: colors.light,
-      backgroundColor: colors.deep,
-      padding: { x: 16, y: 10 },
-    };
-
-    const retryBtn = this.add
-      .text(centerX - 100, centerY, "RETRY", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setInteractive({ useHandCursor: true });
-
-    const exitBtn = this.add
-      .text(centerX + 100, centerY, "EXIT", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setInteractive({ useHandCursor: true });
-
-    retryBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.restart();
-      this.scene.launch("UIScene", { level: 2 });
-    });
-
-    exitBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.start("MenuScene");
-    });
-
-    [retryBtn, exitBtn].forEach((btn) => {
-      btn.on("pointerover", () => btn.setScale(1.1));
-      btn.on("pointerout", () => btn.setScale(1));
-    });
-  }
-
   _triggerGameOver() {
     if (this.gameOver) return;
 
@@ -891,87 +854,68 @@ export default class Level2Scene extends Phaser.Scene {
     this.gameOver = true;
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        "You were hit by the jatra crowd!",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "28px",
-          color: colors.light,
-          backgroundColor: colors.panel,
-          padding: { x: 18, y: 10 },
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(MESSAGE_DEPTH);
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      isLose: true,
+      nextLevel: 3,
+      onRetry: () => {
+        this.scene.stop("UIScene");
+        this.scene.restart();
+        this.scene.launch("UIScene", { level: 2, totalCollectibles: TOTAL_COLLECTIBLES });
+      },
+      onGoHome: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("MenuScene");
+      },
+    });
+  }
 
-    this._showGameOverButtons();
+  _getCompletionStats() {
+    const uiScene = this.scene.get("UIScene");
+    const elapsedMs = uiScene?.stopTimer?.() ?? 0;
+
+    return {
+      elapsedMs,
+      yomariCollected: this.collectedCount,
+      totalYomari: TOTAL_COLLECTIBLES,
+    };
   }
 
   _checkWin() {
     const { r, c } = this.playerPos;
     const { nrows, ncols } = this;
 
-    if (r === nrows - 1 && c === ncols - 1) {
-      if (this.rathSound) {
-        this.rathSound.stop();
-      }
-
-      ProgressManager.completeLevel(2);
-
-      if (this.levelCompletedSound) {
-        this.levelCompletedSound.play();
-      }
-
-      this.input.keyboard.removeAllListeners();
-      this.add
-        .text(
-          this.scale.width / 2,
-          this.scale.height / 2 - 50,
-          "🎉 You reached home!",
-          {
-            fontFamily: "EarlyGameBoy",
-            fontSize: "36px",
-            color: colors.light,
-            backgroundColor: colors.deep,
-            padding: { x: 20, y: 10 },
-          },
-        )
-        .setOrigin(0.5)
-        .setDepth(MESSAGE_DEPTH);
-
-      this.time.delayedCall(2200, () => {
-        this._showVictoryButtons();
-      });
+    if (r !== nrows - 1 || c !== ncols - 1) {
+      return;
     }
-  }
 
-  _showVictoryButtons() {
-    const centerX = this.scale.width / 2;
-    const centerY = this.scale.height / 2 + 80;
+    if (this.levelComplete) return;
 
-    const buttonStyle = {
-      fontFamily: "EarlyGameBoy",
-      fontSize: "20px",
-      color: colors.light,
-      backgroundColor: colors.deep,
-      padding: { x: 16, y: 10 },
-    };
+    this.levelComplete = true;
 
-    const nextBtn = this.add
-      .text(centerX, centerY, "NEXT LEVEL", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(MESSAGE_DEPTH)
-      .setInteractive({ useHandCursor: true });
+    if (this.rathSound) {
+      this.rathSound.stop();
+    }
 
-    nextBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.start("LevelIntroScene", { level: 3 });
+    ProgressManager.completeLevel(2);
+
+    if (this.levelCompletedSound) {
+      this.levelCompletedSound.play();
+    }
+
+    this.input.keyboard.removeAllListeners();
+
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      nextLevel: 3,
+      onContinue: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("LevelIntroScene", { level: 3 });
+      },
+      onGoHome: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("MenuScene");
+      },
     });
-
-    nextBtn.on("pointerover", () => nextBtn.setScale(1.1));
-    nextBtn.on("pointerout", () => nextBtn.setScale(1));
   }
 }

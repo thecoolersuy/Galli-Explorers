@@ -75,7 +75,6 @@ export default class Level4Scene extends BaseMazeScene {
 
     this.collectedCount = 0;
     this._chooseCollectibleCells();
-    this._setupCollectiblesHUD();
 
     this.rathSound = this.sound.add("rath-dhim", {
       loop: true,
@@ -87,7 +86,10 @@ export default class Level4Scene extends BaseMazeScene {
     });
 
     this.currentRathVolume = 0;
-    this.rathSound.play();
+  }
+
+  _beginLevel() {
+    this.rathSound?.play();
   }
 
   _setupCollectiblesHUD() {
@@ -128,9 +130,7 @@ export default class Level4Scene extends BaseMazeScene {
   }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `yomari ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
   }
 
   _showCollectNotification() {

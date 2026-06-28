@@ -12,6 +12,9 @@ import {
   getCharacterConfig,
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
+import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
+import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
+import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -76,6 +79,8 @@ export default class Level1Scene extends Phaser.Scene {
     this.offsetY = Math.floor((this.scale.height - this.nrows * CELL_SIZE) / 2);
 
     this.gameOver = false;
+    this.levelComplete = false;
+    this.awaitingLevelStart = true;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
@@ -109,9 +114,13 @@ export default class Level1Scene extends Phaser.Scene {
       volume: 0.45,
     });
 
-    this._setupCollectiblesHUD();
+    // Start immediately — the intro screen already acted as the start button.
+    this.awaitingLevelStart = false;
+    this._beginLevel();
+  }
 
-    this.rathSound.play();
+  _beginLevel() {
+    this.rathSound?.play();
   }
 
  _setupCollectiblesHUD() {
@@ -167,9 +176,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
 }
 
   _updateCollectiblesHUD() {
-    this.collectiblesText.setText(
-      `🍢 ${this.collectedCount}/${TOTAL_COLLECTIBLES}`
-    );
+    this._emitCollectibleProgress();
   }
 
   _showCollectNotification() {
@@ -590,11 +597,13 @@ _drawHudPill(cx, cy, alpha = 0.92) {
   }
 
   _setupInput() {
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+    setupHeldKeyInput(this);
+  }
 
-    this.input.keyboard.on("keydown", (event) => {
-      this._handleMove(event.key);
+  _processHeldMovement(time) {
+    processHeldMovement(this, time, (key) => this._handleMove(key), {
+      setPlayerRunning: () => this._setPlayerRunning(),
+      setPlayerIdle: () => this._setPlayerIdle(),
     });
   }
 
@@ -628,7 +637,13 @@ _drawHudPill(cx, cy, alpha = 0.92) {
   }
 
   update(time) {
-    if (this.gameOver || !this.obstacles.length) return;
+    if (this.awaitingLevelStart) return;
+
+    if (!this.gameOver && !this.levelComplete) {
+      this._processHeldMovement(time);
+    }
+
+    if (this.gameOver || this.levelComplete || !this.obstacles.length) return;
 
     let hitPlayer = false;
 
@@ -658,7 +673,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
   }
 
   _handleMove(key) {
-    if (this.gameOver) return;
+    if (this.awaitingLevelStart || this.gameOver) return;
 
     const { r, c } = this.playerPos;
     const cell = this.grid[r * this.ncols + c];
@@ -703,6 +718,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
       this._playFootstepSound();
+      this._setPlayerRunning();
 
       for (const collectible of this.collectibles) {
         if (!collectible.matchesCell(nr, nc)) continue;
@@ -715,17 +731,6 @@ _drawHudPill(cx, cy, alpha = 0.92) {
           this._emitCollectibleProgress();
         }
       }
-
-      this.isPlayerMoving = true;
-      this._setPlayerRunning();
-
-      if (this.playerMoveTimer) {
-        this.playerMoveTimer.remove(false);
-      }
-      this.playerMoveTimer = this.time.delayedCall(280, () => {
-        this.isPlayerMoving = false;
-        this._setPlayerIdle();
-      });
 
       this._checkWin();
     }
@@ -761,47 +766,6 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     );
   }
 
-  _showGameOverButtons() {
-    const centerX = this.scale.width / 2;
-    const centerY = this.scale.height / 2 + 80;
-
-    const buttonStyle = {
-      fontFamily: "EarlyGameBoy",
-      fontSize: "20px",
-      color: colors.light,
-      backgroundColor: colors.deep,
-      padding: { x: 16, y: 10 },
-    };
-
-    const retryBtn = this.add
-      .text(centerX - 100, centerY, "RETRY", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setInteractive({ useHandCursor: true });
-
-    const exitBtn = this.add
-      .text(centerX + 100, centerY, "EXIT", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setInteractive({ useHandCursor: true });
-
-    retryBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.restart();
-      this.scene.launch("UIScene", { level: 1 });
-    });
-
-    exitBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.start("MenuScene");
-    });
-
-    [retryBtn, exitBtn].forEach((btn) => {
-      btn.on("pointerover", () => btn.setScale(1.1));
-      btn.on("pointerout", () => btn.setScale(1));
-    });
-  }
-
   _triggerGameOver() {
     if (this.gameOver) return;
 
@@ -812,23 +776,31 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     this.gameOver = true;
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        "You were hit by the jatra crowd!",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "28px",
-          color: colors.light,
-          backgroundColor: colors.panel,
-          padding: { x: 18, y: 10 },
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(10);
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      isLose: true,
+      nextLevel: 2,
+      onRetry: () => {
+        this.scene.stop("UIScene");
+        this.scene.restart();
+        this.scene.launch("UIScene", { level: 1, totalCollectibles: TOTAL_COLLECTIBLES });
+      },
+      onGoHome: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("MenuScene");
+      },
+    });
+  }
 
-    this._showGameOverButtons();
+  _getCompletionStats() {
+    const uiScene = this.scene.get("UIScene");
+    const elapsedMs = uiScene?.stopTimer?.() ?? 0;
+
+    return {
+      elapsedMs,
+      yomariCollected: this.collectedCount,
+      totalYomari: TOTAL_COLLECTIBLES,
+    };
   }
 
   _checkWin() {
@@ -839,35 +811,29 @@ _drawHudPill(cx, cy, alpha = 0.92) {
       return;
     }
 
+    if (this.levelComplete) return;
+
+    this.levelComplete = true;
+
     if (this.rathSound) {
       this.rathSound.stop();
     }
 
     ProgressManager.completeLevel(1);
-
     this.levelCompletedSound.play();
-
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        "🎉 You reached home!",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "36px",
-          color: colors.light,
-          backgroundColor: colors.deep,
-          padding: { x: 20, y: 10 },
-        }
-      )
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this.time.delayedCall(2200, () => {
-      this.scene.stop("UIScene");
-      this.scene.start("LevelIntroScene", { level: 2 });
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      nextLevel: 2,
+      onContinue: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("LevelIntroScene", { level: 2 });
+      },
+      onGoHome: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("MenuScene");
+      },
     });
   }
 

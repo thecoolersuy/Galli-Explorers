@@ -10,6 +10,9 @@ import {
   getCharacterConfig,
   getCharacterRenderPosition,
 } from "../logic/CharacterConfig.js";
+import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
+import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
+import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -76,6 +79,7 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.gameOver = false;
     this.levelComplete = false;
+    this.awaitingLevelStart = true;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
     this._buildMaze();
@@ -86,9 +90,21 @@ export default class BaseMazeScene extends Phaser.Scene {
     this._setupSounds();
     this._setupLevelObjects();
     this._setupInput();
+
+    // Start immediately — the intro screen already acted as the start button.
+    this.awaitingLevelStart = false;
+    this._beginLevel();
   }
 
+  _beginLevel() { }
+
   update(time, delta) {
+    if (this.awaitingLevelStart) return;
+
+    if (!this.gameOver && !this.levelComplete) {
+      this._processHeldMovement(time);
+    }
+
     if (this.gameOver || this.levelComplete) return;
 
     this._updateLevel(time, delta);
@@ -111,7 +127,22 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _getUiData() {
-    return { level: this.levelNumber };
+    return {
+      level: this.levelNumber,
+      totalCollectibles: 3,
+      totalKeys: 0,
+    };
+  }
+
+  _getCompletionStats() {
+    const uiScene = this.scene.get("UIScene");
+    const elapsedMs = uiScene?.stopTimer?.() ?? 0;
+
+    return {
+      elapsedMs,
+      yomariCollected: this.collectedCount ?? 0,
+      totalYomari: 3,
+    };
   }
 
   _buildMaze() {
@@ -280,16 +311,18 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _setupInput() {
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys("W,A,S,D");
+    setupHeldKeyInput(this);
+  }
 
-    this.input.keyboard.on("keydown", (event) => {
-      this._handleMove(event.key);
+  _processHeldMovement(time) {
+    processHeldMovement(this, time, (key) => this._handleMove(key), {
+      setPlayerRunning: () => this._setPlayerRunning(),
+      setPlayerIdle: () => this._setPlayerIdle(),
     });
   }
 
   _handleMove(rawKey) {
-    if (this.gameOver || this.levelComplete) return;
+    if (this.awaitingLevelStart || this.gameOver || this.levelComplete) return;
 
     const key = rawKey.length === 1 ? rawKey.toLowerCase() : rawKey;
     const fromCell = { ...this.playerPos };
@@ -365,15 +398,6 @@ export default class BaseMazeScene extends Phaser.Scene {
   _playWalkAnimation() {
     this.isPlayerMoving = true;
     this._setPlayerRunning();
-
-    if (this.playerMoveTimer) {
-      this.playerMoveTimer.remove(false);
-    }
-
-    this.playerMoveTimer = this.time.delayedCall(280, () => {
-      this.isPlayerMoving = false;
-      this._setPlayerIdle();
-    });
   }
 
   _playFootstepSound() {
@@ -390,53 +414,23 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.impactSound.play();
   }
 
-  _triggerGameOver(message = "Game Over!") {
+  _triggerGameOver(_message = "Game Over!") {
     if (this.gameOver || this.levelComplete) return;
 
     this.gameOver = true;
     this._stopLevelAudio();
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(this.scale.width / 2, this.scale.height / 2, message, {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "28px",
-        color: colors.light,
-        backgroundColor: colors.panel,
-        padding: { x: 18, y: 10 },
-        align: "center",
-        wordWrap: { width: Math.min(this.scale.width - 48, 760) },
-      })
-      .setOrigin(0.5)
-      .setDepth(MESSAGE_DEPTH);
-
-    this._showGameOverButtons();
-  }
-
-  _showGameOverButtons() {
-    const centerX = this.scale.width / 2;
-    const centerY = this.scale.height / 2 + 80;
-
-    this._createButton({
-      x: centerX - 100,
-      y: centerY,
-      width: 150,
-      height: 48,
-      label: "RETRY",
-      onClick: () => {
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      isLose: true,
+      nextLevel: this.nextLevel,
+      onRetry: () => {
         this.scene.stop("UIScene");
         this.scene.restart();
         this.scene.launch("UIScene", this._getUiData());
       },
-    });
-
-    this._createButton({
-      x: centerX + 100,
-      y: centerY,
-      width: 150,
-      height: 48,
-      label: "EXIT",
-      onClick: () => {
+      onGoHome: () => {
         this.scene.stop("UIScene");
         this.scene.start("MenuScene");
       },
@@ -445,8 +439,7 @@ export default class BaseMazeScene extends Phaser.Scene {
 
   _checkWin() {
     if (
-      this.playerPos.r === this.goalCell.r &&
-      this.playerPos.c === this.goalCell.c
+      this.playerPos.r === this.goalCell.r && this.playerPos.c === this.goalCell.c
     ) {
       this._completeLevel();
     }
@@ -466,48 +459,14 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(this.scale.width / 2, this.scale.height / 2 - 50, "YOU REACHED HOME!", {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "34px",
-        color: colors.light,
-        backgroundColor: colors.deep,
-        padding: { x: 20, y: 10 },
-      })
-      .setOrigin(0.5)
-      .setDepth(MESSAGE_DEPTH);
-
-    this.time.delayedCall(1400, () => {
-      this._showVictoryButtons();
-    });
-  }
-
-  _showVictoryButtons() {
-    const centerX = this.scale.width / 2;
-    const centerY = this.scale.height / 2 + 80;
-
-    if (this.nextLevel) {
-      this._createButton({
-        x: centerX,
-        y: centerY,
-        width: 220,
-        height: 52,
-        label: "NEXT LEVEL",
-        onClick: () => {
-          this.scene.stop("UIScene");
-          this.scene.start("LevelIntroScene", { level: this.nextLevel });
-        },
-      });
-      return;
-    }
-
-    this._createButton({
-      x: centerX,
-      y: centerY,
-      width: 220,
-      height: 52,
-      label: "BACK TO MENU",
-      onClick: () => {
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      nextLevel: this.nextLevel,
+      onContinue: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("LevelIntroScene", { level: this.nextLevel });
+      },
+      onGoHome: () => {
         this.scene.stop("UIScene");
         this.scene.start("MenuScene");
       },

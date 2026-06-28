@@ -76,38 +76,34 @@ export default class MenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    // ── PLAY BUTTON (starts from next uncompleted level) ─────────────
+    // ── PLAY BUTTON ─────────────
     const nextLevel = ProgressManager.getNextLevel();
 
-    const playButton = this.add.rectangle(
-      cx + 6,
-      cy + 232,
-      210,
-      58,
-      colors.deepNum,
-    );
-    const playBody = this.add.rectangle(cx, cy + 226, 210, 58, colors.darkNum);
-    const playInner = this.add.rectangle(cx, cy + 226, 202, 50, colors.deepNum);
+    const playBg = this.add.rectangle(cx, cy + 226, 210, 58, colors.accentNum);
     const playText = this.add
-      .text(cx, cy + 226, "PLAY >>> ", {
+      .text(cx, cy + 226, "PLAY", {
         fontFamily: "EarlyGameBoy",
         fontSize: "18px",
-        color: colors.light,
+        color: colors.dark,
         align: "center",
       })
       .setOrigin(0.5);
 
-    playBody.setInteractive({ useHandCursor: true });
-    playBody.on("pointerdown", () => {
+    playBg.setInteractive({ useHandCursor: true });
+    playBg.on("pointerdown", () => {
       this.scene.start("CharacterSelectionScene");
     });
-    playBody.on("pointerover", () => playBody.setScale(1.04));
-    playBody.on("pointerout", () => playBody.setScale(1));
+    playBg.on("pointerover", () => {
+      playBg.setFillStyle(colors.darkNum);
+      playText.setColor(colors.accent);
+    });
+    playBg.on("pointerout", () => {
+      playBg.setFillStyle(colors.accentNum);
+      playText.setColor(colors.dark);
+    });
 
-    playButton.setDepth(1);
-    playBody.setDepth(2);
-    playInner.setDepth(3);
-    playText.setDepth(4);
+    playBg.setDepth(2);
+    playText.setDepth(3);
 
     this.input.keyboard?.once("keydown-ENTER", () => {
       this.scene.start("CharacterSelectionScene");
@@ -157,7 +153,8 @@ export default class MenuScene extends Phaser.Scene {
     g.fillRect(barX, barY, barWidth, barHeight);
 
     // ── Filled portion (pixel-art green gradient) ──
-    const fillWidth = Math.floor((barWidth * fillRatio) / pixelSize) * pixelSize;
+    const fillWidth =
+      Math.floor((barWidth * fillRatio) / pixelSize) * pixelSize;
 
     if (fillWidth > 0) {
       // Draw pixelated fill blocks with gradient from darker green to lighter
@@ -203,7 +200,7 @@ export default class MenuScene extends Phaser.Scene {
         // Create a stair-step pattern on the right edge of the fill
         for (let y = 0; y < barHeight; y += pixelSize) {
           const step = Math.floor(y / (pixelSize * 2));
-          const offset = (step % 2 === 0) ? 0 : pixelSize;
+          const offset = step % 2 === 0 ? 0 : pixelSize;
 
           if (offset === 0 && edgeX + pixelSize <= barX + barWidth) {
             // Add extra pixel block for jagged edge
@@ -234,13 +231,18 @@ export default class MenuScene extends Phaser.Scene {
 
     // ── XP counter text (right side of bar) ──
     this.add
-      .text(barX + barWidth - 8, barY + barHeight / 2, `${currentXP}/${maxXP}`, {
-        fontFamily: "EarlyGameBoy",
-        fontSize: "11px",
-        color: "#f7efe3",
-        stroke: "#1a0d05",
-        strokeThickness: 3,
-      })
+      .text(
+        barX + barWidth - 8,
+        barY + barHeight / 2,
+        `${currentXP}/${maxXP}`,
+        {
+          fontFamily: "EarlyGameBoy",
+          fontSize: "11px",
+          color: "#f7efe3",
+          stroke: "#1a0d05",
+          strokeThickness: 3,
+        },
+      )
       .setOrigin(1, 0.5)
       .setDepth(101);
 
