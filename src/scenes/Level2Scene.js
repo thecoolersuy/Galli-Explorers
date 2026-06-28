@@ -14,6 +14,7 @@ import {
 } from "../logic/CharacterConfig.js";
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
+import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -91,6 +92,7 @@ export default class Level2Scene extends Phaser.Scene {
 
     this.gameOver = false;
     this.levelComplete = false;
+    this.awaitingLevelStart = true;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
@@ -125,9 +127,19 @@ export default class Level2Scene extends Phaser.Scene {
       volume: 0.45,
     });
 
-    
+    this._showLevelStartPrompt();
+  }
 
-    this.rathSound.play();
+  _showLevelStartPrompt() {
+    showLevelStartPrompt(this, () => {
+      this.awaitingLevelStart = false;
+      this.scene.get("UIScene")?.startTimer?.();
+      this._beginLevel();
+    });
+  }
+
+  _beginLevel() {
+    this.rathSound?.play();
   }
 
   _setupCollectiblesHUD() {
@@ -700,6 +712,8 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   update(time) {
+    if (this.awaitingLevelStart) return;
+
     if (!this.gameOver && !this.levelComplete) {
       this._processHeldMovement(time);
     }
@@ -740,7 +754,7 @@ export default class Level2Scene extends Phaser.Scene {
   }
 
   _handleMove(key) {
-    if (this.gameOver) return;
+    if (this.awaitingLevelStart || this.gameOver) return;
 
     const { r, c } = this.playerPos;
     const cell = this.grid[r * this.ncols + c];

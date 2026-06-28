@@ -12,8 +12,8 @@ export default class UIScene extends Phaser.Scene {
     const totalKeys = data.totalKeys ?? 0;
     const totalCollectibles = data.totalCollectibles ?? 3;
 
-    this.levelStartTime = this.time.now;
-    this.timerRunning = true;
+    this.levelStartTime = 0;
+    this.timerRunning = false;
     this.collectedCount = 0;
     this.totalCollectibles = totalCollectibles;
 
@@ -70,7 +70,18 @@ export default class UIScene extends Phaser.Scene {
     this.timerText.setText(formatElapsedTime(elapsedMs));
   }
 
+  startTimer() {
+    if (this.timerRunning) return;
+
+    this.levelStartTime = this.time.now;
+    this.timerRunning = true;
+  }
+
   stopTimer() {
+    if (!this.timerRunning) {
+      return 0;
+    }
+
     const elapsedMs = this.time.now - this.levelStartTime;
     this.timerRunning = false;
     this.timerText.setText(formatElapsedTime(elapsedMs));

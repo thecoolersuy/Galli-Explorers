@@ -86,7 +86,10 @@ export default class Level4Scene extends BaseMazeScene {
     });
 
     this.currentRathVolume = 0;
-    this.rathSound.play();
+  }
+
+  _beginLevel() {
+    this.rathSound?.play();
   }
 
   _setupCollectiblesHUD() {

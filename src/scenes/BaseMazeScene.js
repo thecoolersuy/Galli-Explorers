@@ -12,6 +12,7 @@ import {
 } from "../logic/CharacterConfig.js";
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
+import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -78,6 +79,7 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     this.gameOver = false;
     this.levelComplete = false;
+    this.awaitingLevelStart = true;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
 
     this._buildMaze();
@@ -88,9 +90,22 @@ export default class BaseMazeScene extends Phaser.Scene {
     this._setupSounds();
     this._setupLevelObjects();
     this._setupInput();
+    this._showLevelStartPrompt();
   }
 
+  _showLevelStartPrompt() {
+    showLevelStartPrompt(this, () => {
+      this.awaitingLevelStart = false;
+      this.scene.get("UIScene")?.startTimer?.();
+      this._beginLevel();
+    });
+  }
+
+  _beginLevel() { }
+
   update(time, delta) {
+    if (this.awaitingLevelStart) return;
+
     if (!this.gameOver && !this.levelComplete) {
       this._processHeldMovement(time);
     }
@@ -312,7 +327,7 @@ export default class BaseMazeScene extends Phaser.Scene {
   }
 
   _handleMove(rawKey) {
-    if (this.gameOver || this.levelComplete) return;
+    if (this.awaitingLevelStart || this.gameOver || this.levelComplete) return;
 
     const key = rawKey.length === 1 ? rawKey.toLowerCase() : rawKey;
     const fromCell = { ...this.playerPos };

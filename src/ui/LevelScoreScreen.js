@@ -78,7 +78,7 @@ export function showLevelScoreScreen(scene, {
     .text(
       centerX,
       anchors.statsY,
-      `Timing: ${score.timingFormatted}\nYomari collected: ${score.yomariCollected}/${score.totalYomari}`,
+      `Timing: ${score.timingFormatted}\nYomari collected: \n ${score.yomariCollected}/${score.totalYomari}`,
       {
         fontFamily: "EarlyGameBoy",
         fontSize: statsFontSize,
