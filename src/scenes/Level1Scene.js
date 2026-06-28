@@ -114,15 +114,9 @@ export default class Level1Scene extends Phaser.Scene {
       volume: 0.45,
     });
 
-    this._showLevelStartPrompt();
-  }
-
-  _showLevelStartPrompt() {
-    showLevelStartPrompt(this, () => {
-      this.awaitingLevelStart = false;
-      this.scene.get("UIScene")?.startTimer?.();
-      this._beginLevel();
-    });
+    // Start immediately — the intro screen already acted as the start button.
+    this.awaitingLevelStart = false;
+    this._beginLevel();
   }
 
   _beginLevel() {
@@ -772,47 +766,6 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     );
   }
 
-  _showGameOverButtons() {
-    const centerX = this.scale.width / 2;
-    const centerY = this.scale.height / 2 + 80;
-
-    const buttonStyle = {
-      fontFamily: "EarlyGameBoy",
-      fontSize: "20px",
-      color: colors.light,
-      backgroundColor: colors.deep,
-      padding: { x: 16, y: 10 },
-    };
-
-    const retryBtn = this.add
-      .text(centerX - 100, centerY, "RETRY", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setInteractive({ useHandCursor: true });
-
-    const exitBtn = this.add
-      .text(centerX + 100, centerY, "EXIT", buttonStyle)
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setInteractive({ useHandCursor: true });
-
-    retryBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.restart();
-      this.scene.launch("UIScene", { level: 1, totalCollectibles: TOTAL_COLLECTIBLES });
-    });
-
-    exitBtn.on("pointerdown", () => {
-      this.scene.stop("UIScene");
-      this.scene.start("MenuScene");
-    });
-
-    [retryBtn, exitBtn].forEach((btn) => {
-      btn.on("pointerover", () => btn.setScale(1.1));
-      btn.on("pointerout", () => btn.setScale(1));
-    });
-  }
-
   _triggerGameOver() {
     if (this.gameOver) return;
 
@@ -823,23 +776,20 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     this.gameOver = true;
     this.input.keyboard.removeAllListeners();
 
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        "You were hit by the jatra crowd!",
-        {
-          fontFamily: "EarlyGameBoy",
-          fontSize: "28px",
-          color: colors.light,
-          backgroundColor: colors.panel,
-          padding: { x: 18, y: 10 },
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(10);
-
-    this._showGameOverButtons();
+    showLevelScoreScreen(this, {
+      ...this._getCompletionStats(),
+      isLose: true,
+      nextLevel: 2,
+      onRetry: () => {
+        this.scene.stop("UIScene");
+        this.scene.restart();
+        this.scene.launch("UIScene", { level: 1, totalCollectibles: TOTAL_COLLECTIBLES });
+      },
+      onGoHome: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("MenuScene");
+      },
+    });
   }
 
   _getCompletionStats() {
@@ -875,9 +825,14 @@ _drawHudPill(cx, cy, alpha = 0.92) {
 
     showLevelScoreScreen(this, {
       ...this._getCompletionStats(),
+      nextLevel: 2,
       onContinue: () => {
         this.scene.stop("UIScene");
         this.scene.start("LevelIntroScene", { level: 2 });
+      },
+      onGoHome: () => {
+        this.scene.stop("UIScene");
+        this.scene.start("MenuScene");
       },
     });
   }

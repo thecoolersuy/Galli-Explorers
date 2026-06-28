@@ -61,24 +61,39 @@ export default class UIScene extends Phaser.Scene {
       this.totalCollectibles = total;
       this.collectiblesText.setText(`yomari ${collected}/${total}`);
     });
+
+    // Start timer automatically when UIScene is launched (from Intro Scene)
+    this.startTimer();
   }
 
-  update() {
+  update(time, delta) {
     if (!this.timerRunning) return;
 
-    const elapsedMs = this.time.now - this.levelStartTime;
+    // Capture the start time on the very first frame to avoid `this.time.now` being 0 during create()
+    if (this.levelStartTime === -1) {
+      this.levelStartTime = time;
+    }
+
+    const elapsedMs = time - this.levelStartTime;
     this.timerText.setText(formatElapsedTime(elapsedMs));
   }
 
   startTimer() {
     if (this.timerRunning) return;
 
-    this.levelStartTime = this.time.now;
+    // Set to -1 so update() knows to capture the exact time on its first frame
+    this.levelStartTime = -1;
     this.timerRunning = true;
   }
 
   stopTimer() {
     if (!this.timerRunning) {
+      return 0;
+    }
+
+    // If it somehow stopped before the first frame, elapsed is 0
+    if (this.levelStartTime === -1) {
+      this.timerRunning = false;
       return 0;
     }
 
@@ -88,3 +103,4 @@ export default class UIScene extends Phaser.Scene {
     return elapsedMs;
   }
 }
+

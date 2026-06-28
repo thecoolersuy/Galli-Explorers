@@ -131,7 +131,7 @@ export default class LevelIntroScene extends Phaser.Scene {
       y: panelTop + panelHeight - 74,
       width: 180,
       height: 54,
-      label: "PLAY >>>",
+      label: "PLAY",
       onClick: () => {
         this.scene.start(intro.nextScene);
         this.scene.launch("UIScene", {
@@ -155,38 +155,29 @@ export default class LevelIntroScene extends Phaser.Scene {
   }
 
   _createButton({ x, y, width, height, label, onClick }) {
-    const shadow = this.add.rectangle(
-      x + 6,
-      y + 6,
-      width,
-      height,
-      colors.deepNum,
-    );
-    const body = this.add.rectangle(x, y, width, height, colors.darkNum);
-    const inner = this.add.rectangle(
-      x,
-      y,
-      width - 8,
-      height - 8,
-      colors.deepNum,
-    );
+    const bg = this.add.rectangle(x, y, width, height, colors.accentNum);
+    
     const labelText = this.add
       .text(x, y, label, {
         fontFamily: "EarlyGameBoy",
         fontSize: "16px",
-        color: colors.light,
+        color: colors.dark,
         align: "center",
       })
       .setOrigin(0.5);
 
-    body.setInteractive({ useHandCursor: true });
-    body.on("pointerdown", onClick);
-    body.on("pointerover", () => body.setScale(1.04));
-    body.on("pointerout", () => body.setScale(1));
+    bg.setInteractive({ useHandCursor: true });
+    bg.on("pointerdown", onClick);
+    bg.on("pointerover", () => {
+      bg.setFillStyle(colors.darkNum);
+      labelText.setColor(colors.accent);
+    });
+    bg.on("pointerout", () => {
+      bg.setFillStyle(colors.accentNum);
+      labelText.setColor(colors.dark);
+    });
 
-    shadow.setDepth(1);
-    body.setDepth(2);
-    inner.setDepth(3);
+    bg.setDepth(2);
     labelText.setDepth(4);
   }
 }

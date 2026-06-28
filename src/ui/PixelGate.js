@@ -85,7 +85,7 @@ export function getGateTextAnchors({ unit, originY, centerX }) {
     titleY: originY + unit * 19.0,
     statsY: originY + unit * 28.5,
     totalY: originY + unit * 38.0,
-    continueY: originY + unit * (GATE_UNITS_H + 2.5),
+    continueY: originY + unit * 46.5,
     centerX,
   };
 }
