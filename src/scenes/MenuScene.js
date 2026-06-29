@@ -8,6 +8,14 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    let introSound = this.sound.get("intro-sound");
+    if (!introSound) {
+      introSound = this.sound.add("intro-sound", { loop: true, volume: 2.0 });
+    }
+    if (!introSound.isPlaying) {
+      introSound.play();
+    }
+
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
 
