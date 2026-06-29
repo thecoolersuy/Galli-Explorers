@@ -5,7 +5,7 @@ import audio from "../styles/audio.js";
 import MazeCollectible from "../sprites/MazeCollectible.js";
 
 const RATH_MOVE_MS = 380;
-const BALL_MOVE_MS = 320;
+const BALL_MOVE_MS = 270;
 const LAKHEY_WALK_ACTIVE_MS = 280;
 const LAKHEY_SOURCE_TEXTURE = "lakheyfinal-source";
 const LAKHEY_FRAME_TEXTURE_PREFIX = "lakhey-walk-frame";
