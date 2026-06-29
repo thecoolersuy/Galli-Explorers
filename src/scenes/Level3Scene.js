@@ -431,6 +431,7 @@ export default class Level3Scene extends BaseMazeScene {
         this._showCollectNotification();
         this._updateCollectiblesHUD();
         this._emitCollectibleProgress();
+        this.achievementTracker?.recordYomariCollected(this.collectedCount);
       }
     }
 

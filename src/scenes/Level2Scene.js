@@ -15,6 +15,7 @@ import {
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
 import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
+import AchievementRunTracker from "../logic/AchievementRunTracker.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -95,6 +96,7 @@ export default class Level2Scene extends Phaser.Scene {
     this.awaitingLevelStart = true;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
+    this.achievementTracker = new AchievementRunTracker(this, 2);
 
     this._buildMaze();
     this._placeObstacles();
@@ -780,6 +782,7 @@ export default class Level2Scene extends Phaser.Scene {
     }
 
     if (hitWall) {
+      this.achievementTracker?.recordWallHit();
       this._playImpactSound();
       return;
     }
@@ -790,6 +793,13 @@ export default class Level2Scene extends Phaser.Scene {
     }
 
     if (nr !== r || nc !== c) {
+      this.achievementTracker?.recordMove({ r, c }, { r: nr, c: nc });
+      this.achievementTracker?.checkJatraDodger(
+        this.obstacles,
+        this.nrows,
+        this.ncols,
+      );
+
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
       this._playFootstepSound();
@@ -804,6 +814,7 @@ export default class Level2Scene extends Phaser.Scene {
           this._showCollectNotification();
           this._updateCollectiblesHUD();
           this._emitCollectibleProgress();
+          this.achievementTracker?.recordYomariCollected(this.collectedCount);
         }
       }
 
@@ -899,6 +910,9 @@ export default class Level2Scene extends Phaser.Scene {
 
     ProgressManager.completeLevel(2);
 
+    const completionStats = this._getCompletionStats();
+    this.achievementTracker?.onLevelComplete(completionStats.elapsedMs);
+
     if (this.levelCompletedSound) {
       this.levelCompletedSound.play();
     }
@@ -906,7 +920,7 @@ export default class Level2Scene extends Phaser.Scene {
     this.input.keyboard.removeAllListeners();
 
     showLevelScoreScreen(this, {
-      ...this._getCompletionStats(),
+      ...completionStats,
       nextLevel: 3,
       onContinue: () => {
         this.scene.stop("UIScene");

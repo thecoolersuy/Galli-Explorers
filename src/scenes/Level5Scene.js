@@ -255,7 +255,9 @@ export default class Level5Scene extends BaseMazeScene {
     return !this.gate || !this.gate.blocksMove(fromCell, toCell);
   }
 
-  _afterPlayerMove(_fromCell, _toCell) {
+  _afterPlayerMove(fromCell, toCell) {
+    super._afterPlayerMove(fromCell, toCell);
+
     const { r, c } = this.playerPos;
 
     // Check yomari collection
@@ -268,6 +270,7 @@ export default class Level5Scene extends BaseMazeScene {
         this._showCollectNotification();
         this._updateCollectiblesHUD();
         this._emitCollectibleProgress();
+        this.achievementTracker?.recordYomariCollected(this.collectedCount);
       }
     }
 

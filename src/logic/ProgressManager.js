@@ -1,10 +1,15 @@
 // Centralized progress manager for tracking level completion via localStorage.
 // Each completed level = 100 XP, max 500 XP (5 levels).
+// Each achievement = 50 XP bonus.
+
+import { ACHIEVEMENTS, ACHIEVEMENT_XP } from "./Achievements.js";
 
 const STORAGE_KEY = "galli-explorer-progress";
 const XP_PER_LEVEL = 100;
-const MAX_XP = 500;
 const TOTAL_LEVELS = 5;
+const MAX_LEVEL_XP = TOTAL_LEVELS * XP_PER_LEVEL;
+const MAX_ACHIEVEMENT_XP = ACHIEVEMENTS.length * ACHIEVEMENT_XP;
+const MAX_XP = MAX_LEVEL_XP + MAX_ACHIEVEMENT_XP;
 
 export default class ProgressManager {
   static _getState() {
@@ -13,6 +18,7 @@ export default class ProgressManager {
       spentXP: 0,
       selectedCharacter: "maicha",
       unlockedCharacters: ["maicha"],
+      achievements: [],
     };
 
     try {
@@ -57,8 +63,12 @@ export default class ProgressManager {
 
   static getXP() {
     const state = ProgressManager._getState();
-    const earnedXP = Math.min(state.completed.length * XP_PER_LEVEL, MAX_XP);
-    return Math.max(0, earnedXP - state.spentXP);
+    const levelXP = Math.min(state.completed.length * XP_PER_LEVEL, MAX_LEVEL_XP);
+    const achievementXP = Math.min(
+      (state.achievements?.length ?? 0) * ACHIEVEMENT_XP,
+      MAX_ACHIEVEMENT_XP,
+    );
+    return Math.max(0, levelXP + achievementXP - state.spentXP);
   }
 
   static deductXP(amount) {

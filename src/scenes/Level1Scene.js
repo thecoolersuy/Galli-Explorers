@@ -15,6 +15,7 @@ import {
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
 import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
+import AchievementRunTracker from "../logic/AchievementRunTracker.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -83,6 +84,7 @@ export default class Level1Scene extends Phaser.Scene {
     this.awaitingLevelStart = true;
     this.collectedCount = 0;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
+    this.achievementTracker = new AchievementRunTracker(this, 1);
 
     this._buildMaze();
     this._placeObstacles();
@@ -705,6 +707,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     }
 
     if (hitWall) {
+      this.achievementTracker?.recordWallHit();
       this._playImpactSound();
       return;
     }
@@ -715,6 +718,13 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     }
 
     if (nr !== r || nc !== c) {
+      this.achievementTracker?.recordMove({ r, c }, { r: nr, c: nc });
+      this.achievementTracker?.checkJatraDodger(
+        this.obstacles,
+        this.nrows,
+        this.ncols,
+      );
+
       this.playerPos = { r: nr, c: nc };
       this._drawPlayer();
       this._playFootstepSound();
@@ -729,6 +739,7 @@ _drawHudPill(cx, cy, alpha = 0.92) {
           this._showCollectNotification();
           this._updateCollectiblesHUD();
           this._emitCollectibleProgress();
+          this.achievementTracker?.recordYomariCollected(this.collectedCount);
         }
       }
 
@@ -820,11 +831,15 @@ _drawHudPill(cx, cy, alpha = 0.92) {
     }
 
     ProgressManager.completeLevel(1);
+
+    const completionStats = this._getCompletionStats();
+    this.achievementTracker?.onLevelComplete(completionStats.elapsedMs);
+
     this.levelCompletedSound.play();
     this.input.keyboard.removeAllListeners();
 
     showLevelScoreScreen(this, {
-      ...this._getCompletionStats(),
+      ...completionStats,
       nextLevel: 2,
       onContinue: () => {
         this.scene.stop("UIScene");

@@ -260,6 +260,8 @@ export default class Level4Scene extends BaseMazeScene {
   }
 
   _afterPlayerMove(_fromCell, _toCell) {
+    super._afterPlayerMove(_fromCell, _toCell);
+
     const { r, c } = this.playerPos;
 
     // Check yomari collection
@@ -272,6 +274,7 @@ export default class Level4Scene extends BaseMazeScene {
         this._showCollectNotification();
         this._updateCollectiblesHUD();
         this._emitCollectibleProgress();
+        this.achievementTracker?.recordYomariCollected(this.collectedCount);
 
         if (this.collectedCount === TOTAL_COLLECTIBLES) {
           this._showAllCollectedNotification();

@@ -13,6 +13,7 @@ import {
 import { processHeldMovement, setupHeldKeyInput } from "../logic/PlayerInput.js";
 import { showLevelScoreScreen } from "../ui/LevelScoreScreen.js";
 import { showLevelStartPrompt } from "../ui/LevelStartPrompt.js";
+import AchievementRunTracker from "../logic/AchievementRunTracker.js";
 
 const CELL_SIZE = 45;
 const WALL_THICKNESS = 8;
@@ -81,6 +82,7 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.levelComplete = false;
     this.awaitingLevelStart = true;
     this.playerCharacter = getCharacterConfig(ProgressManager.getSelectedCharacter());
+    this.achievementTracker = new AchievementRunTracker(this, this.levelNumber);
 
     this._buildMaze();
     this._configureLevel();
@@ -120,7 +122,18 @@ export default class BaseMazeScene extends Phaser.Scene {
     return true;
   }
 
-  _afterPlayerMove() { }
+  _afterPlayerMove(fromCell, toCell) {
+    this.achievementTracker?.recordMove(fromCell, toCell);
+    this.achievementTracker?.checkJatraDodger(
+      this._getJatraObstacles(),
+      this.nrows,
+      this.ncols,
+    );
+  }
+
+  _getJatraObstacles() {
+    return this.rathObstacles ?? [];
+  }
 
   _isHazardAt() {
     return false;
@@ -359,6 +372,7 @@ export default class BaseMazeScene extends Phaser.Scene {
     const toCell = { r: nr, c: nc };
 
     if (hitWall || !this._canEnterCell(fromCell, toCell)) {
+      this.achievementTracker?.recordWallHit();
       this._playImpactSound();
       return;
     }
@@ -453,6 +467,9 @@ export default class BaseMazeScene extends Phaser.Scene {
 
     ProgressManager.completeLevel(this.levelNumber);
 
+    const completionStats = this._getCompletionStats();
+    this.achievementTracker?.onLevelComplete(completionStats.elapsedMs);
+
     if (this.levelCompletedSound) {
       this.levelCompletedSound.play();
     }
@@ -460,7 +477,7 @@ export default class BaseMazeScene extends Phaser.Scene {
     this.input.keyboard.removeAllListeners();
 
     showLevelScoreScreen(this, {
-      ...this._getCompletionStats(),
+      ...completionStats,
       nextLevel: this.nextLevel,
       onContinue: () => {
         this.scene.stop("UIScene");
