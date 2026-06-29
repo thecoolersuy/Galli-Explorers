@@ -17,6 +17,14 @@ export default class CharacterSelectionScene extends Phaser.Scene {
   }
 
   create() {
+    let introSound = this.sound.get("intro-sound");
+    if (!introSound) {
+      introSound = this.sound.add("intro-sound", { loop: true, volume: 2.0 });
+    }
+    if (!introSound.isPlaying) {
+      introSound.play();
+    }
+
     this.cx = this.scale.width / 2;
     this.cy = this.scale.height / 2;
     this.selected = ProgressManager.getSelectedCharacter();
@@ -197,6 +205,10 @@ export default class CharacterSelectionScene extends Phaser.Scene {
 
     playBg.setInteractive({ useHandCursor: true });
     playBg.on("pointerdown", () => {
+      let introSound = this.sound.get("intro-sound");
+      if (introSound && introSound.isPlaying) {
+        introSound.stop();
+      }
       ProgressManager.selectCharacter(this.selected);
       this.scene.start("LevelIntroScene", { level: nextLevel });
     });
@@ -210,6 +222,10 @@ export default class CharacterSelectionScene extends Phaser.Scene {
     });
 
     this.input.keyboard?.once("keydown-ENTER", () => {
+      let introSound = this.sound.get("intro-sound");
+      if (introSound && introSound.isPlaying) {
+        introSound.stop();
+      }
       ProgressManager.selectCharacter(this.selected);
       this.scene.start("LevelIntroScene", { level: nextLevel });
     });

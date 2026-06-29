@@ -8,6 +8,14 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    let introSound = this.sound.get("intro-sound");
+    if (!introSound) {
+      introSound = this.sound.add("intro-sound", { loop: true, volume: 2.0 });
+    }
+    if (!introSound.isPlaying) {
+      introSound.play();
+    }
+
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
 
@@ -104,6 +112,33 @@ export default class MenuScene extends Phaser.Scene {
 
     playBg.setDepth(2);
     playText.setDepth(3);
+
+    // ── ACHIEVEMENTS BUTTON ───────────────────────────────────────
+    const achievementsBg = this.add.rectangle(cx, cy + 300, 210, 58, colors.panelNum);
+    const achievementsText = this.add
+      .text(cx, cy + 300, "ACHIEVEMENTS", {
+        fontFamily: "EarlyGameBoy",
+        fontSize: "16px",
+        color: colors.light,
+        align: "center",
+      })
+      .setOrigin(0.5);
+
+    achievementsBg.setInteractive({ useHandCursor: true });
+    achievementsBg.on("pointerdown", () => {
+      this.scene.start("AchievementsScene");
+    });
+    achievementsBg.on("pointerover", () => {
+      achievementsBg.setFillStyle(colors.darkNum);
+      achievementsText.setColor(colors.accent);
+    });
+    achievementsBg.on("pointerout", () => {
+      achievementsBg.setFillStyle(colors.panelNum);
+      achievementsText.setColor(colors.light);
+    });
+
+    achievementsBg.setDepth(2);
+    achievementsText.setDepth(3);
 
     this.input.keyboard?.once("keydown-ENTER", () => {
       this.scene.start("CharacterSelectionScene");
